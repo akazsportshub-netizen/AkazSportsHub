@@ -458,7 +458,7 @@ async def seed_products():
     else:
         print("❌ No products to insert")
     
-    await client.close()
+    client.close()
     print("🎉 Database seeding completed successfully!")
 
 if __name__ == "__main__":
