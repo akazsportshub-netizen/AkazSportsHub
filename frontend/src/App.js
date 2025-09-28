@@ -737,7 +737,7 @@ const Footer = () => {
             <h3 className="text-2xl font-bold mb-4">AKAZ SPORTS HUB</h3>
             <p className="text-gray-300 mb-4">
               Your trusted partner for premium sports equipment in the GCC region. 
-              We distribute world-class brands including GOWIN, TRIUMPH, and BABBLER.
+              We distribute world-class brands including GOWIN, TRIUMPH, BABBLER, and CAPTAIN.
             </p>
             <div className="space-y-2 text-sm text-gray-300">
               <p>📧 akazsportshub@akazsportshub.com</p>
