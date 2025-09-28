@@ -290,6 +290,11 @@ body {
   color: #581c87;
 }
 
+.brand-badge.captain {
+  background-color: #fed7aa;
+  color: #c2410c;
+}
+
 /* Enhanced Gradient Backgrounds */
 .hero-gradient {
   background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #1d4ed8 75%, #2563eb 100%);
