@@ -160,7 +160,7 @@ async def root():
         "message": "Welcome to Akaz Sports Hub API",
         "company": "Akaz Sports Hub",
         "description": "Your trusted partner for premium sports equipment in GCC region",
-        "brands": ["GOWIN", "TRIUMPH", "BABBLER"],
+        "brands": ["GOWIN", "TRIUMPH", "BABBLER", "CAPTAIN"],
         "version": "1.0.0"
     }
 
