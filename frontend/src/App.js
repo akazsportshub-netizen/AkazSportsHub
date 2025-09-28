@@ -263,7 +263,8 @@ const ProductsPage = ({ products, setProducts }) => {
   const categories = {
     'GOWIN': ['Cricket Shoes', 'Football Shoes', 'Badminton Shoes', 'Running Shoes', 'Footwear Accessories'],
     'TRIUMPH': ['Cricket Bags', 'Cricket Accessories', 'Badminton Equipment', 'Sports Bags', 'General Accessories'],
-    'BABBLER': ['Gym Gloves', 'Gym Belts', 'Support Gear', 'Boxing Equipment', 'Fitness Accessories']
+    'BABBLER': ['Gym Gloves', 'Gym Belts', 'Support Gear', 'Boxing Equipment', 'Fitness Accessories'],
+    'CAPTAIN': ['Soccer Socks', 'Sports Socks', 'Shin Guards', 'Protective Gear', 'Sports Tape', 'Jump Ropes', 'Water Bottles', 'Captain Bands', 'Casual Socks']
   };
 
   const fetchProducts = async () => {
