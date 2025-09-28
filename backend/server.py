@@ -185,6 +185,12 @@ async def get_brands():
             "description": "Professional Fitness & Athletic Gear",
             "categories": ["Gym Gloves", "Gym Belts", "Support Gear", "Boxing Equipment", "Fitness Accessories"],
             "logo": "/images/brands/babbler-logo.png"
+        },
+        "CAPTAIN": {
+            "name": "CAPTAIN",
+            "description": "Sports Accessories & Protective Gear",
+            "categories": ["Soccer Socks", "Sports Socks", "Shin Guards", "Protective Gear", "Sports Tape", "Jump Ropes", "Water Bottles", "Captain Bands", "Casual Socks"],
+            "logo": "/images/brands/captain-logo.png"
         }
     }
 
