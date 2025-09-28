@@ -99,6 +99,10 @@ body {
   background: linear-gradient(135deg, var(--accent-purple), #581c87);
 }
 
+.brand-captain {
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+}
+
 /* Enhanced animations */
 @keyframes fadeInUp {
   from {
