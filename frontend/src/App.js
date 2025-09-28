@@ -657,6 +657,20 @@ const BrandsPage = () => {
       ],
       color: 'from-purple-600 to-purple-800',
       highlights: ['Athletic Performance', 'Support Technology', 'Professional Grade']
+    },
+    {
+      name: 'CAPTAIN',
+      description: 'Sports Accessories & Protective Gear',
+      fullDescription: 'CAPTAIN is a leading manufacturer of sports accessories and protective gear, specializing in soccer socks, shin guards, captain bands, and essential sports equipment. With a focus on quality and performance, CAPTAIN serves athletes from youth to professional levels.',
+      categories: [
+        'Soccer Socks - Professional grade socks with moisture-wicking technology',
+        'Shin Guards - High-impact protection with comfortable foam padding',
+        'Captain Bands - Official leadership armbands for all age groups',
+        'Protective Gear - Knee and ankle support for injury prevention',
+        'Sports Accessories - Jump ropes, water bottles, and sports tape'
+      ],
+      color: 'from-orange-600 to-orange-800',
+      highlights: ['Sports Leadership', 'Protective Excellence', 'Youth to Professional']
     }
   ];
 
