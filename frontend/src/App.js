@@ -232,7 +232,8 @@ const FeaturedProducts = ({ featuredProducts }) => {
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     product.brand === 'GOWIN' ? 'bg-green-100 text-green-800' :
                     product.brand === 'TRIUMPH' ? 'bg-red-100 text-red-800' :
-                    'bg-purple-100 text-purple-800'
+                    product.brand === 'BABBLER' ? 'bg-purple-100 text-purple-800' :
+                    'bg-orange-100 text-orange-800'
                   }`}>
                     {product.brand}
                   </span>
