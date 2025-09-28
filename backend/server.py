@@ -53,6 +53,17 @@ class Category(str, Enum):
     SUPPORT_GEAR = "Support Gear"
     BOXING_EQUIPMENT = "Boxing Equipment"
     FITNESS_ACCESSORIES = "Fitness Accessories"
+    
+    # CAPTAIN Categories
+    SOCCER_SOCKS = "Soccer Socks"
+    SPORTS_SOCKS = "Sports Socks"
+    SHIN_GUARDS = "Shin Guards"
+    PROTECTIVE_GEAR = "Protective Gear"
+    SPORTS_TAPE = "Sports Tape"
+    JUMP_ROPES = "Jump Ropes"
+    WATER_BOTTLES = "Water Bottles"
+    CAPTAIN_BANDS = "Captain Bands"
+    CASUAL_SOCKS = "Casual Socks"
 
 class InquiryStatus(str, Enum):
     PENDING = "pending"
