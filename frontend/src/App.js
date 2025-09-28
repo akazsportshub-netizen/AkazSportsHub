@@ -752,6 +752,7 @@ const Footer = () => {
               <li>GOWIN - Sports Footwear</li>
               <li>TRIUMPH - Sports Equipment</li>
               <li>BABBLER - Fitness Gear</li>
+              <li>CAPTAIN - Sports Accessories</li>
             </ul>
           </div>
           
