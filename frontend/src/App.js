@@ -170,6 +170,12 @@ const BrandsShowcase = () => {
       description: 'Professional Fitness Gear',
       categories: 'Gym Equipment • Support Gear • Boxing',
       color: 'from-purple-600 to-purple-800'
+    },
+    {
+      name: 'CAPTAIN',
+      description: 'Sports Accessories & Protective Gear',
+      categories: 'Soccer Socks • Shin Guards • Protective Gear',
+      color: 'from-orange-600 to-orange-800'
     }
   ];
 
