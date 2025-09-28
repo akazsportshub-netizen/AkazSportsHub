@@ -233,12 +233,34 @@ const FeaturedProducts = ({ featuredProducts }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {featuredProducts.map((product, index) => (
             <div key={product.id || index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden group">
-              <div className="aspect-w-1 aspect-h-1 p-4">
-                <ProductImage 
-                  product={product} 
-                  className="w-full h-48" 
-                  size="medium"
-                />
+              <div className="aspect-w-1 aspect-h-1 bg-gray-200 p-4">
+                <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center relative overflow-hidden">
+                  {product.images && product.images[0] ? (
+                    <img 
+                      src={product.images[0]} 
+                      alt={`${product.brand} ${product.name}`}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="text-center absolute inset-0 flex items-center justify-center" style={{display: product.images && product.images[0] ? 'none' : 'flex'}}>
+                    <div>
+                      <div className={`w-16 h-16 mx-auto mb-2 rounded-lg flex items-center justify-center text-white font-bold text-xl ${
+                        product.brand === 'GOWIN' ? 'bg-green-600' :
+                        product.brand === 'TRIUMPH' ? 'bg-red-600' :
+                        product.brand === 'BABBLER' ? 'bg-purple-600' :
+                        'bg-orange-600'
+                      }`}>
+                        {product.brand.charAt(0)}
+                      </div>
+                      <span className="text-gray-600 text-xs font-medium">{product.brand}</span>
+                      <div className="text-gray-500 text-xs mt-1">{product.model_code}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="p-6">
                 <div className="flex justify-between items-start mb-2">
