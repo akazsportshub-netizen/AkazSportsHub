@@ -187,7 +187,7 @@ const BrandsShowcase = () => {
           <p className="text-xl text-gray-600">Trusted by athletes and sports professionals worldwide</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {brands.map((brand, index) => (
             <div key={index} className="group cursor-pointer">
               <div className={`bg-gradient-to-br ${brand.color} p-8 rounded-2xl text-white transform group-hover:scale-105 transition-all duration-300 shadow-lg group-hover:shadow-2xl`}>
