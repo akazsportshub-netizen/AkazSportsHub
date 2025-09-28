@@ -369,21 +369,12 @@ const ProductsPage = ({ products, setProducts }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product, index) => (
                 <div key={product.id || index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="aspect-w-1 aspect-h-1 bg-gray-200 p-4">
-                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center relative overflow-hidden">
-                      <div className="text-center">
-                        <div className={`w-20 h-20 mx-auto mb-3 rounded-lg flex items-center justify-center text-white font-bold text-2xl ${
-                          product.brand === 'GOWIN' ? 'bg-green-600' :
-                          product.brand === 'TRIUMPH' ? 'bg-red-600' :
-                          product.brand === 'BABBLER' ? 'bg-purple-600' :
-                          'bg-orange-600'
-                        }`}>
-                          {product.brand.charAt(0)}
-                        </div>
-                        <span className="text-gray-600 text-sm font-medium">{product.brand}</span>
-                        <div className="text-gray-500 text-xs mt-1">{product.model_code}</div>
-                      </div>
-                    </div>
+                  <div className="aspect-w-1 aspect-h-1 p-4">
+                    <ProductImage 
+                      product={product} 
+                      className="w-full h-48" 
+                      size="large"
+                    />
                   </div>
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
