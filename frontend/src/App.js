@@ -323,6 +323,7 @@ const ProductsPage = ({ products, setProducts }) => {
                   <option value="GOWIN">GOWIN</option>
                   <option value="TRIUMPH">TRIUMPH</option>
                   <option value="BABBLER">BABBLER</option>
+                  <option value="CAPTAIN">CAPTAIN</option>
                 </select>
               </div>
               <div>
