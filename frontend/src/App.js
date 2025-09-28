@@ -680,7 +680,7 @@ const BrandsPage = () => {
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Our Premium Brands</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            We are the exclusive distributors for three world-class sports equipment brands in the GCC region. 
+            We are the exclusive distributors for four world-class sports equipment brands in the GCC region. 
             Each brand represents excellence in its category, serving professional athletes and sports enthusiasts.
           </p>
         </div>
