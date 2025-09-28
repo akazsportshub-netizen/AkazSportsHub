@@ -30,6 +30,7 @@ class Brand(str, Enum):
     GOWIN = "GOWIN"
     TRIUMPH = "TRIUMPH" 
     BABBLER = "BABBLER"
+    CAPTAIN = "CAPTAIN"
 
 class Category(str, Enum):
     # GOWIN Categories
