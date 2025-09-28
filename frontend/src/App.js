@@ -126,8 +126,19 @@ const Header = ({ currentPage, setCurrentPage }) => {
 // Hero Section
 const HeroSection = () => {
   return (
-    <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+    <div className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white overflow-hidden">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: 'url(https://images.unsplash.com/photo-1653681498612-37ec55093e29?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwyfHxzcG9ydHMlMjBlcXVpcG1lbnR8ZW58MHx8fHwxNzU5MDc5Nzk1fDA&ixlib=rb-4.1.0&q=85)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      ></div>
+      {/* Content */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Premium Sports Equipment
