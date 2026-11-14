@@ -1,0 +1,17 @@
+.git
+.github
+.emergent
+node_modules
+dist
+*.env
+.env.*
+!.env.example
+
+# Legacy catalogue app and non-runtime files — not needed in the API image
+backend
+frontend
+tests
+integration-tests
+test_result.md
+README.md
+docker-compose.yml

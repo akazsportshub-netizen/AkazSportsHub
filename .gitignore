@@ -85,3 +85,6 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+
+# AKAZ Sports Hub API: keep the environment template tracked
+!.env.example
