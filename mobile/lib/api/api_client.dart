@@ -110,6 +110,29 @@ class ApiClient {
     return asString(body['status']);
   }
 
+  // ---- matches (referee) ---------------------------------------------------
+
+  /// Needs the REFEREE, VENUE_MANAGER or ADMIN role. Returns the new match id.
+  Future<String> createMatch({
+    required String courtId,
+    required String homeTeamName,
+    required String awayTeamName,
+    required DateTime scheduledStart,
+  }) async {
+    final body = asMap(await _send('POST', '/matches', body: {
+      'court_id': courtId,
+      'home_team_name': homeTeamName,
+      'away_team_name': awayTeamName,
+      'scheduled_start': DateTime.fromMillisecondsSinceEpoch(scheduledStart.millisecondsSinceEpoch, isUtc: true).toIso8601String(),
+    }));
+    return asString(body['id']);
+  }
+
+  /// Sends recorded events. Safe to repeat: the API answers with the ids it stored
+  /// (`accepted`), already had (`duplicates`) or refused (`rejected`), and the server's clock.
+  Future<Map<String, dynamic>> syncMatchEvents(String matchId, {required String deviceId, required List<Map<String, Object?>> events}) async =>
+      asMap(await _send('POST', '/matches/$matchId/events/batch', body: {'device_id': deviceId, 'events': events}));
+
   // ---- transport -----------------------------------------------------------
 
   Future<Object?> _send(String method, String path, {Map<String, String>? query, Map<String, Object?>? body}) async {
