@@ -137,7 +137,7 @@ See `.env.example`. The process refuses to start with a missing or invalid setti
 
 The deploy replaces only the `api` container (`--no-deps`), so Postgres and Redis keep running. Migrations are applied first and are idempotent. If the new container does not report healthy within 90 seconds the previous image is put back and the job fails.
 
-Secrets the `production` environment needs: `SSH_HOST`, `SSH_USER`, `SSH_KEY`, `DEPLOY_PATH`, and `SSH_PORT` if it is not 22. The host needs `docker-compose.yml`, `docker-compose.prod.yml` and a filled-in `.env` in `DEPLOY_PATH`; nothing else, and no copy of the source.
+**The deploy job is switched off** until there is a host to deploy to. To turn it on, add the secrets `SSH_HOST`, `SSH_USER`, `SSH_KEY`, `DEPLOY_PATH` (and `SSH_PORT` if it is not 22), then set the repository variable `DEPLOY_ENABLED` to `true`. Test and publish run either way. The host needs `docker-compose.yml`, `docker-compose.prod.yml` and a filled-in `.env` in `DEPLOY_PATH`; nothing else, and no copy of the source.
 
 Install the backup as a cron job on the host and **copy the snapshots off it** — a backup on the same disk as the database is not a backup:
 

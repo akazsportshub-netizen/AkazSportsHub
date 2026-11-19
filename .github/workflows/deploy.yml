@@ -3,12 +3,16 @@
 # Pull request   → test only.
 # Push to main   → test, build the image, push it to GHCR, deploy over SSH.
 #
-# Required repository secrets for the deploy job:
-#   SSH_HOST      production host
-#   SSH_USER      user to connect as (must be able to run docker)
-#   SSH_KEY       private key for that user (no passphrase)
-#   SSH_PORT      optional, defaults to 22
-#   DEPLOY_PATH   directory on the host holding docker-compose.yml and .env
+# The deploy job is switched off until the host exists. To turn it on:
+#   1. Add these repository secrets —
+#        SSH_HOST      production host
+#        SSH_USER      user to connect as (must be able to run docker)
+#        SSH_KEY       private key for that user (no passphrase)
+#        DEPLOY_PATH   directory on the host holding the compose files and .env
+#        SSH_PORT      optional, defaults to 22
+#   2. Set the repository variable DEPLOY_ENABLED to `true`.
+#
+# Test and publish run either way, so main stays green in the meantime.
 #
 # The deploy job is bound to the `production` environment, so required reviewers
 # or a wait timer can be set on it in the repository's environment settings.
@@ -183,7 +187,19 @@ jobs:
   deploy:
     name: Deploy
     needs: publish
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Gated on the repository variable DEPLOY_ENABLED. Set it to `true` once the
+    # secrets listed at the top of this file exist; until then this job is
+    # skipped, the image is still published, and main stays green.
+    #
+    # It has to be a variable rather than a secret: a job-level `if` can read
+    # the github, needs, vars and inputs contexts, but not `secrets`. The first
+    # step below covers the other direction — the variable set but a secret
+    # missing — because a half-configured deploy should fail loudly, not
+    # silently SSH nowhere.
+    if: >-
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -191,6 +207,24 @@ jobs:
       url: https://api.akazsportshub.com/v1/health
 
     steps:
+      - name: Check the deploy secrets are set
+        run: |
+          missing=()
+          [ -n "${SSH_HOST:-}" ]    || missing+=(SSH_HOST)
+          [ -n "${SSH_USER:-}" ]    || missing+=(SSH_USER)
+          [ -n "${SSH_KEY:-}" ]     || missing+=(SSH_KEY)
+          [ -n "${DEPLOY_PATH:-}" ] || missing+=(DEPLOY_PATH)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::DEPLOY_ENABLED is true but these secrets are not set: ${missing[*]}"
+            exit 1
+          fi
+          echo "All required deploy secrets are present."
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
       - name: Set up the SSH key
         run: |
           mkdir -p ~/.ssh
