@@ -50,7 +50,7 @@ docker compose up --build     # Postgres + PostGIS, Redis, migrations, API on ht
 curl http://localhost:3000/v1/health
 ```
 
-The first `npm install` creates `package-lock.json`. **Commit it** — the Dockerfile switches to the reproducible `npm ci` as soon as it exists.
+`package-lock.json` is committed, so the Dockerfile and CI both use the reproducible `npm ci`.
 
 Without Docker: `npm install`, start Postgres (with PostGIS) and Redis yourself, then `npm run db:migrate` and `npm run start:dev`.
 

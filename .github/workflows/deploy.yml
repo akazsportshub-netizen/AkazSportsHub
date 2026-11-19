@@ -97,9 +97,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # `cache: npm` is deliberately absent: it fails the job outright when
-          # there is no package-lock.json, and this repository has none yet.
-          # Add it back in the same commit that commits the lock file.
+          cache: npm
 
       - name: Install dependencies
         # `npm ci` once package-lock.json is committed; `npm install` until then.
