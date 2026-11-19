@@ -18,6 +18,7 @@ describe('loadConfig', () => {
     assert.equal(config.paymentProvider, 'mock');
     assert.equal(config.holdMinutes, 15);
     assert.equal(config.runWorkers, true);
+    assert.equal(config.devLogin, false);
     assert.equal(config.publicBaseUrl, 'https://api.example.test');
     assert.equal(config.tap.apiBase, 'https://api.tap.company/v2');
   });
@@ -36,6 +37,15 @@ describe('loadConfig', () => {
 
   it('refuses the mock provider in production', () => {
     assert.throws(() => loadConfig({ ...base, NODE_ENV: 'production' }), /mock is not allowed in production/);
+  });
+
+  it('enables development sign-in only when asked, and never in production', () => {
+    assert.equal(loadConfig({ ...base, DEV_LOGIN: 'true' }).devLogin, true);
+    assert.equal(loadConfig({ ...base, DEV_LOGIN: 'yes' }).devLogin, false);
+    assert.throws(
+      () => loadConfig({ ...base, NODE_ENV: 'production', PAYMENT_PROVIDER: 'tap', TAP_SECRET_KEY: 'sk_live_x', DEV_LOGIN: 'true' }),
+      /DEV_LOGIN=true is not allowed in production/,
+    );
   });
 
   it('requires the keys of the selected provider', () => {
