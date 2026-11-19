@@ -28,7 +28,7 @@ class _InvitesScreenState extends State<InvitesScreen> {
 
   Future<void> _reload() async {
     final next = widget.api.myInvites();
-    setState(() => _invites = next);
+    setState(() { _invites = next; });
     await next.catchError((Object _) => <RingerInvite>[]);
   }
 

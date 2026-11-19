@@ -26,7 +26,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _users = widget.session.api.devUsers();
   }
 
-  void _reload() => setState(() => _users = widget.session.api.devUsers());
+  void _reload() => setState(() { _users = widget.session.api.devUsers(); });
 
   Future<void> _signIn(DevUser user) async {
     setState(() => _signingInAs = user.id);

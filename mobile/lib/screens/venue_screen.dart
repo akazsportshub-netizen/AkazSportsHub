@@ -27,7 +27,7 @@ class _VenueScreenState extends State<VenueScreen> {
     _venue = widget.api.venue(widget.venueId);
   }
 
-  void _reload() => setState(() => _venue = widget.api.venue(widget.venueId));
+  void _reload() => setState(() { _venue = widget.api.venue(widget.venueId); });
 
   @override
   Widget build(BuildContext context) {

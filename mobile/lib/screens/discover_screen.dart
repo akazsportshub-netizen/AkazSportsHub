@@ -50,7 +50,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   Future<List<Venue>> _load() => widget.api.nearbyVenues(lat: _city.lat, lng: _city.lng, radiusKm: 30, sport: _sport);
 
-  void _reload() => setState(() => _venues = _load());
+  void _reload() => setState(() { _venues = _load(); });
 
   @override
   Widget build(BuildContext context) {

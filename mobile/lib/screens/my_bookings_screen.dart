@@ -27,7 +27,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Future<void> _reload() async {
     final next = widget.api.myBookings();
-    setState(() => _bookings = next);
+    setState(() { _bookings = next; });
     await next.catchError((Object _) => <BookingSummary>[]);
   }
 

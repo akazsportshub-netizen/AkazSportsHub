@@ -38,7 +38,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
 
   Future<Availability> _load() => widget.api.availability(widget.court.id, isoDate(_day));
 
-  void _reload() => setState(() => _availability = _load());
+  void _reload() => setState(() { _availability = _load(); });
 
   Future<void> _hold(Slot slot) async {
     final timezone = widget.venue.timezone;
