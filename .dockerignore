@@ -14,4 +14,5 @@ tests
 integration-tests
 test_result.md
 README.md
-docker-compose.yml
+docker-compose*.yml
+nginx

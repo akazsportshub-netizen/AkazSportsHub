@@ -1,0 +1,46 @@
+# Production override. Use it alongside the base file, never on its own:
+#
+#   AKAZ_API_IMAGE=ghcr.io/akazsportshub-netizen/akaz-sports-hub-api:sha-… \
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps api
+#
+# What it changes:
+#   * api runs a published image instead of building from source on the host.
+#   * Postgres and Redis are no longer published on a port at all; only other
+#     containers reach them. NGINX terminates TLS and proxies to the api
+#     container (see nginx/conf.d/akaz.conf).
+#   * Logs are capped, so a noisy week cannot fill the disk.
+#
+# `.env` on the host supplies JWT_SECRET, POSTGRES_PASSWORD, the payment
+# provider keys and PUBLIC_BASE_URL. It is never committed and never baked into
+# the image.
+
+services:
+  postgres:
+    ports: !override []
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  redis:
+    ports: !override []
+    logging: *logging
+
+  migrate:
+    environment:
+      # Never load demo data into production.
+      SKIP_SEED: 'true'
+    logging: *logging
+
+  api:
+    # Set by the deploy job to the immutable sha- tag it just pushed. Pinning a
+    # digest-like tag rather than `latest` is what makes a rollback possible.
+    image: ${AKAZ_API_IMAGE:?Set AKAZ_API_IMAGE to the image to run}
+    build: !reset null
+    environment:
+      NODE_ENV: production
+    ports:
+      # Published on loopback only — NGINX is the way in.
+      - '127.0.0.1:3000:3000'
+    logging: *logging

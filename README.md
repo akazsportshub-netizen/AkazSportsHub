@@ -4,7 +4,7 @@ This repository holds two things:
 
 | Path | What it is | Status |
 | --- | --- | --- |
-| `src/`, `db/`, `scripts/`, `integration-tests/`, `Dockerfile`, `docker-compose.yml` | **Platform API** — the NestJS backend core of the AKAZ Sports Hub super-app (court discovery, split-pay bookings, payment webhooks, referee match sync, ringer recruitment) | New, described below |
+| `src/`, `db/`, `scripts/`, `integration-tests/`, `nginx/`, `.github/`, `Dockerfile`, `docker-compose*.yml` | **Platform API** — the NestJS backend core of the AKAZ Sports Hub super-app (court discovery, split-pay bookings, payment webhooks, referee match sync, ringer recruitment) | New, described below |
 | `backend/`, `frontend/` | The existing B2B wholesale catalogue (FastAPI + MongoDB + React) | Unchanged |
 
 The two are independent: they share no code, database or port.
@@ -126,6 +126,25 @@ See `.env.example`. The process refuses to start with a missing or invalid setti
 2. Point the provider's webhook at `<PUBLIC_BASE_URL>/v1/webhooks/tap` or `/v1/webhooks/checkout`.
 3. **Run every call once against the provider's sandbox.** The request shapes follow the providers' public API references, but they have not been exercised against a live sandbox yet. `src/payments/tap.gateway.ts` marks the fields to confirm.
 
+### Deploying
+
+| File | What it does |
+| --- | --- |
+| `.github/workflows/deploy.yml` | Pull request → typecheck, 72 unit tests, migrations, SQL schema checks, 43 integration tests, `shellcheck`, Docker build. Push to `main` → the same, then push the image to GHCR and deploy over SSH. |
+| `docker-compose.prod.yml` | Production override: runs the published image instead of building on the host, stops publishing Postgres and Redis on any port, forces `SKIP_SEED=true`, caps container logs. |
+| `nginx/conf.d/akaz.conf` | TLS termination, security headers, three rate-limit zones (reads, writes, provider webhooks), WebSocket upgrade for match timers. |
+| `scripts/backup-postgres.sh` | Daily compressed `pg_dump -Fc`, verified with `pg_restore --list` before it is kept, 14-day retention. |
+
+The deploy replaces only the `api` container (`--no-deps`), so Postgres and Redis keep running. Migrations are applied first and are idempotent. If the new container does not report healthy within 90 seconds the previous image is put back and the job fails.
+
+Secrets the `production` environment needs: `SSH_HOST`, `SSH_USER`, `SSH_KEY`, `DEPLOY_PATH`, and `SSH_PORT` if it is not 22. The host needs `docker-compose.yml`, `docker-compose.prod.yml` and a filled-in `.env` in `DEPLOY_PATH`; nothing else, and no copy of the source.
+
+Install the backup as a cron job on the host and **copy the snapshots off it** — a backup on the same disk as the database is not a backup:
+
+```cron
+0 2 * * * DATABASE_URL=postgres://... /opt/akaz/scripts/backup-postgres.sh >> /var/log/akaz-backup.log 2>&1
+```
+
 ### Not built yet
 
 These parts of the master guide are outside the backend core and still to do:
@@ -134,5 +153,5 @@ These parts of the master guide are outside the backend core and still to do:
 - **Push notifications.** Ringer invitations are stored and served by `GET /ringer-invites/mine`; nothing is pushed through FCM yet.
 - **Live match timers over WebSocket.** Sin-bin countdowns are served over HTTP with `server_time` for clock correction.
 - **Venue payouts, academy ERP, gear e-commerce, QR passes, IoT floodlights/turnstiles, POS sync, tournament brackets.**
-- **Flutter app, NGINX config, CI/CD workflows, backup script.**
+- **Flutter app** (`mobile/` in the master guide) and its App Store / Play pipeline.
 - **Ringers do not pay a share.** A player who accepts an invitation is listed, not charged.
