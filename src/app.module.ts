@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { BookingsModule } from './bookings/bookings.module';
@@ -23,6 +24,7 @@ import { WorkersModule } from './workers/workers.module';
     ConfigModule,
     DatabaseModule,
     QueuesModule,
+    AuthModule,
     VenuesModule,
     PaymentsModule,
     BookingsModule,

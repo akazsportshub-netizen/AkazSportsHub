@@ -163,7 +163,7 @@ export class RingersService {
       SELECT i.id, i.status, i.distance_m, i.created_at,
              r.slots_needed, r.slots_filled, r.status AS request_status,
              lower(b.slot_range) AS starts_at, upper(b.slot_range) AS ends_at,
-             c.name AS court_name, c.sport, v.name AS venue_name, v.city, v.requires_turf_footwear
+             c.name AS court_name, c.sport, v.name AS venue_name, v.city, v.timezone, v.requires_turf_footwear
         FROM ringer_invites i
         JOIN ringer_requests r ON r.id = i.request_id
         JOIN bookings b ON b.id = r.booking_id

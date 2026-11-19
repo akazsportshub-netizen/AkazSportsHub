@@ -5,6 +5,7 @@ This repository holds two things:
 | Path | What it is | Status |
 | --- | --- | --- |
 | `src/`, `db/`, `scripts/`, `integration-tests/`, `nginx/`, `.github/`, `Dockerfile`, `docker-compose*.yml` | **Platform API** — the NestJS backend core of the AKAZ Sports Hub super-app (court discovery, split-pay bookings, payment webhooks, referee match sync, ringer recruitment) | New, described below |
+| `mobile/` | **Player app** (Flutter) — find a court, hold a slot, pay, manage bookings, answer ringer invites | New, first version — see `mobile/README.md` |
 | `backend/`, `frontend/` | The existing B2B wholesale catalogue (FastAPI + MongoDB + React) | Unchanged |
 
 The two are independent: they share no code, database or port.
@@ -149,9 +150,9 @@ Install the backup as a cron job on the host and **copy the snapshots off it** �
 
 These parts of the master guide are outside the backend core and still to do:
 
-- **Sign-in.** The API verifies access tokens but does not issue them (no OTP login or refresh tokens). `npm run dev:token` mints tokens for development.
+- **Sign-in.** The API verifies access tokens but does not issue them (no OTP login or refresh tokens). For development, `npm run dev:token` prints a token, and with `DEV_LOGIN=true` the app can sign in as any seeded user through `/v1/dev/auth` (refused in production).
 - **Push notifications.** Ringer invitations are stored and served by `GET /ringer-invites/mine`; nothing is pushed through FCM yet.
 - **Live match timers over WebSocket.** Sin-bin countdowns are served over HTTP with `server_time` for clock correction.
 - **Venue payouts, academy ERP, gear e-commerce, QR passes, IoT floodlights/turnstiles, POS sync, tournament brackets.**
-- **Flutter app** (`mobile/` in the master guide) and its App Store / Play pipeline.
+- **Flutter app:** a first version is in `mobile/` (see its README). Still to do there: OTP sign-in, split-pay with friends, GPS, push notifications, and the App Store / Play pipeline.
 - **Ringers do not pay a share.** A player who accepts an invitation is listed, not charged.

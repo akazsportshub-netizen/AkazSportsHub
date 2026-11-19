@@ -18,6 +18,11 @@ export interface AppConfig {
   holdMinutes: number;
   /** Set RUN_WORKERS=false on API-only replicas. */
   runWorkers: boolean;
+  /**
+   * DEV_LOGIN=true opens /v1/dev/auth, which signs a token for any seeded user without a
+   * password. Local development only; refused in production.
+   */
+  devLogin: boolean;
   tap: {
     secretKey: string | null;
     apiBase: string;
@@ -94,6 +99,7 @@ export function loadConfig(env: Env): AppConfig {
     paymentProvider,
     holdMinutes: integer('HOLD_MINUTES', 15, 1, 120),
     runWorkers: (optional(env, 'RUN_WORKERS') ?? 'true').toLowerCase() !== 'false',
+    devLogin: (optional(env, 'DEV_LOGIN') ?? 'false').toLowerCase() === 'true',
     tap: {
       secretKey: optional(env, 'TAP_SECRET_KEY'),
       apiBase: trimSlash(optional(env, 'TAP_API_BASE') ?? 'https://api.tap.company/v2'),
@@ -115,6 +121,9 @@ export function loadConfig(env: Env): AppConfig {
     if (!config.checkout.processingChannelId) {
       problems.push('CHECKOUT_PROCESSING_CHANNEL_ID is required when PAYMENT_PROVIDER=checkout');
     }
+  }
+  if (nodeEnv === 'production' && config.devLogin) {
+    problems.push('DEV_LOGIN=true is not allowed in production');
   }
   if (nodeEnv === 'production' && paymentProvider === 'mock') {
     problems.push('PAYMENT_PROVIDER=mock is not allowed in production');
