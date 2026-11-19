@@ -1,0 +1,299 @@
+# AKAZ Sports Hub — Platform API pipeline.
+#
+# Pull request   → test only.
+# Push to main   → test, build the image, push it to GHCR, deploy over SSH.
+#
+# The deploy job is switched off until the host exists. To turn it on:
+#   1. Add these repository secrets —
+#        SSH_HOST      production host
+#        SSH_USER      user to connect as (must be able to run docker)
+#        SSH_KEY       private key for that user (no passphrase)
+#        DEPLOY_PATH   directory on the host holding the compose files and .env
+#        SSH_PORT      optional, defaults to 22
+#   2. Set the repository variable DEPLOY_ENABLED to `true`.
+#
+# Test and publish run either way, so main stays green in the meantime.
+#
+# The deploy job is bound to the `production` environment, so required reviewers
+# or a wait timer can be set on it in the repository's environment settings.
+name: Platform API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'db/**'
+      - 'scripts/**'
+      - 'integration-tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'nest-cli.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose*.yml'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'db/**'
+      - 'scripts/**'
+      - 'integration-tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'nest-cli.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose*.yml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# One pipeline per branch. In-progress runs for the same branch are cancelled,
+# except on main: a half-finished deploy must not be interrupted.
+concurrency:
+  group: platform-api-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/akaz-sports-hub-api
+  NODE_VERSION: '22'
+
+jobs:
+  # ---- test ------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        # PostGIS is required: the schema uses geography columns and GiST
+        # exclusion constraints, so the plain postgres image will not migrate.
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: akaz
+          POSTGRES_PASSWORD: akaz
+          POSTGRES_DB: akaz_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U akaz -d akaz_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # The suite refuses to run unless the database name ends in `_test`.
+      DATABASE_URL: postgres://akaz:akaz@localhost:5432/akaz_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        # `npm ci` once package-lock.json is committed; `npm install` until then.
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Apply migrations and seed data
+        run: npm run db:migrate
+
+      - name: Schema guarantees
+        # Asserts the double-booking exclusion constraint and the slot rules
+        # directly in SQL, then rolls back.
+        run: npm run db:check
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Check the shell scripts
+        # These two run against the live database, so a quoting bug in them is
+        # worth catching here. Style notes are not failures.
+        run: |
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck --severity=warning scripts/backup-postgres.sh scripts/migrate.sh
+
+      - name: Build the image
+        # On a pull request this is the only check that the Dockerfile is sound.
+        run: docker build -t akaz-api:${{ github.sha }} .
+
+  # ---- build and push --------------------------------------------------------
+  publish:
+    name: Publish to GHCR
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the tags
+        id: meta
+        run: |
+          echo "image=${IMAGE_NAME}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # The immutable sha- tag is what gets deployed; `latest` is for humans.
+          tags: |
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ steps.meta.outputs.image }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  # ---- deploy ----------------------------------------------------------------
+  deploy:
+    name: Deploy
+    needs: publish
+    # Gated on the repository variable DEPLOY_ENABLED. Set it to `true` once the
+    # secrets listed at the top of this file exist; until then this job is
+    # skipped, the image is still published, and main stays green.
+    #
+    # It has to be a variable rather than a secret: a job-level `if` can read
+    # the github, needs, vars and inputs contexts, but not `secrets`. The first
+    # step below covers the other direction — the variable set but a secret
+    # missing — because a half-configured deploy should fail loudly, not
+    # silently SSH nowhere.
+    if: >-
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://api.akazsportshub.com/v1/health
+
+    steps:
+      - name: Check the deploy secrets are set
+        run: |
+          missing=()
+          [ -n "${SSH_HOST:-}" ]    || missing+=(SSH_HOST)
+          [ -n "${SSH_USER:-}" ]    || missing+=(SSH_USER)
+          [ -n "${SSH_KEY:-}" ]     || missing+=(SSH_KEY)
+          [ -n "${DEPLOY_PATH:-}" ] || missing+=(DEPLOY_PATH)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::DEPLOY_ENABLED is true but these secrets are not set: ${missing[*]}"
+            exit 1
+          fi
+          echo "All required deploy secrets are present."
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
+      - name: Set up the SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+
+      - name: Deploy the new image
+        # Replaces only the api container (`--no-deps`), so Postgres and Redis
+        # keep running and no connection to them is dropped. The migrate service
+        # runs first and is idempotent: it applies anything new and exits.
+        #
+        # The heredoc is unquoted, so the runner's shell fills in the four values
+        # below before the script is piped over the SSH tunnel. Remote-side shell
+        # variables are therefore written \$name. Nothing lands in the host's
+        # process list or on its disk, which matters for the registry token.
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" \
+              -o BatchMode=yes -o ConnectTimeout=15 \
+              "$SSH_USER@$SSH_HOST" bash -seu <<REMOTE
+            cd '$DEPLOY_PATH'
+
+            printf '%s\n' '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin
+
+            compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+
+            # Remember what is running now, so a bad deploy can be rolled back.
+            previous="\$(docker inspect --format '{{.Config.Image}}' "\$("\${compose[@]}" ps -q api)" 2>/dev/null || true)"
+            echo "currently running: \${previous:-nothing}"
+
+            export AKAZ_API_IMAGE='$IMAGE'
+            "\${compose[@]}" pull api
+            SKIP_SEED=true "\${compose[@]}" run --rm migrate
+            "\${compose[@]}" up -d --no-deps api
+
+            # The container's own HEALTHCHECK decides this; give it 90 seconds.
+            state=starting
+            for _ in \$(seq 1 30); do
+              state="\$(docker inspect --format '{{.State.Health.Status}}' "\$("\${compose[@]}" ps -q api)" 2>/dev/null || echo starting)"
+              echo "  health: \$state"
+              [ "\$state" = healthy ] && break
+              sleep 3
+            done
+
+            if [ "\$state" != healthy ]; then
+              echo "new container did not become healthy — rolling back" >&2
+              "\${compose[@]}" logs --tail 80 api || true
+              if [ -n "\$previous" ]; then
+                AKAZ_API_IMAGE="\$previous" "\${compose[@]}" up -d --no-deps api
+              fi
+              exit 1
+            fi
+
+            echo "deployed $IMAGE"
+            docker image prune -f --filter 'until=168h' >/dev/null || true
+          REMOTE
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Confirm the public endpoint answers
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+                   https://api.akazsportshub.com/v1/health || echo 000)"
+          echo "GET /v1/health → $code"
+          [ "$code" = 200 ]

@@ -1,0 +1,76 @@
+# AKAZ Sports Hub — Postgres (PostGIS), Redis and the NestJS API.
+#
+#   cp .env.example .env      # then set JWT_SECRET and POSTGRES_PASSWORD
+#   docker compose up --build
+#
+# Postgres, Redis and the API are published on 127.0.0.1 only. In production put
+# NGINX in front of the API and do not publish the data stores at all.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-akaz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-akaz}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # AOF keeps delayed jobs (hold expiries) across restarts; noeviction is required by BullMQ.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: applies db/migrations in order, then exits. Runs again harmlessly on every `up`.
+  migrate:
+    image: postgis/postgis:16-3.4
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-akaz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-akaz}
+      SKIP_SEED: ${SKIP_SEED:-false}
+    volumes:
+      - ./db/migrations:/app/db/migrations:ro
+      - ./scripts/migrate.sh:/app/scripts/migrate.sh:ro
+    entrypoint: ["bash", "/app/scripts/migrate.sh"]
+    restart: "no"
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Inside the compose network the stores are reached by service name.
+      DATABASE_URL: postgres://${POSTGRES_USER:-akaz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-akaz}
+      REDIS_URL: redis://redis:6379
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pgdata:
+  redisdata:
