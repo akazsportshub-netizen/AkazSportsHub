@@ -8,7 +8,7 @@ BEGIN;
 
 DO $$
 DECLARE
-  v_court  uuid := '00000000-0000-4000-d000-000000000001';   -- Al Sadd pitch 1, 16:00–01:00 Asia/Qatar, 60-minute slots
+  v_court  uuid := '00000000-0000-4000-9000-000000000001';   -- Al Sadd pitch 1, 16:00–01:00 Asia/Qatar, 60-minute slots
   v_user   uuid := '00000000-0000-4000-a000-000000000010';
   v_first  uuid;
   v_reason text;
@@ -35,7 +35,7 @@ BEGIN
 
   -- 4. The same time on another court is free.
   INSERT INTO bookings (court_id, organizer_user_id, slot_range, status, currency, total_minor, platform_fee_minor, hold_expires_at)
-  VALUES ('00000000-0000-4000-d000-000000000002', v_user, tstzrange('2030-01-10 18:00+03', '2030-01-10 19:00+03', '[)'), 'HOLD', 'QAR', 35000, 3500, now() + interval '15 minutes');
+  VALUES ('00000000-0000-4000-9000-000000000002', v_user, tstzrange('2030-01-10 18:00+03', '2030-01-10 19:00+03', '[)'), 'HOLD', 'QAR', 35000, 3500, now() + interval '15 minutes');
 
   -- 5. Once a hold expires, the slot can be booked again.
   UPDATE bookings SET status = 'EXPIRED', expired_at = now() WHERE id = v_first;
@@ -77,10 +77,10 @@ BEGIN
   IF v_reason IS DISTINCT FROM 'COURT_NOT_FOUND' THEN RAISE EXCEPTION 'CHECK FAILED: unknown court not reported (%)', v_reason; END IF;
 
   -- 90-minute padel court, 06:00–00:00.
-  v_reason := court_slot_violation('00000000-0000-4000-d000-000000000004', '2030-01-10 07:30+03', '2030-01-10 09:00+03');
+  v_reason := court_slot_violation('00000000-0000-4000-9000-000000000004', '2030-01-10 07:30+03', '2030-01-10 09:00+03');
   IF v_reason IS NOT NULL THEN RAISE EXCEPTION 'CHECK FAILED: valid 90-minute padel slot rejected (%)', v_reason; END IF;
 
-  v_reason := court_slot_violation('00000000-0000-4000-d000-000000000004', '2030-01-10 07:00+03', '2030-01-10 08:30+03');
+  v_reason := court_slot_violation('00000000-0000-4000-9000-000000000004', '2030-01-10 07:00+03', '2030-01-10 08:30+03');
   IF v_reason IS DISTINCT FROM 'MISALIGNED_SLOT' THEN RAISE EXCEPTION 'CHECK FAILED: off-grid padel slot not rejected (%)', v_reason; END IF;
 
   RAISE NOTICE 'booking and slot checks passed';
@@ -93,7 +93,7 @@ DECLARE
   v_caught  boolean;
 BEGIN
   INSERT INTO matches (court_id, referee_user_id, home_team_name, away_team_name, scheduled_start)
-  VALUES ('00000000-0000-4000-d000-000000000001', v_ref, 'Home', 'Away', '2030-01-10 18:00+03')
+  VALUES ('00000000-0000-4000-9000-000000000001', v_ref, 'Home', 'Away', '2030-01-10 18:00+03')
   RETURNING id INTO v_match;
 
   -- A white card must carry a sin-bin release time…

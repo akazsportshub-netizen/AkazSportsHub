@@ -49,31 +49,31 @@ ON CONFLICT (id) DO NOTHING;
 -- Venues (one or more per GCC market)
 -- -----------------------------------------------------------------------------
 INSERT INTO venues (id, name, description, country_code, city, address, currency, timezone, location, manager_user_id, requires_turf_footwear, rules, commission_bps, free_cancellation_hours) VALUES
-  ('00000000-0000-4000-c000-000000000001', 'Akaz Demo Arena — Al Sadd', 'Floodlit 5-a-side and 7-a-side turf pitches.',
+  ('00000000-0000-4000-8000-000000000001', 'Akaz Demo Arena — Al Sadd', 'Floodlit 5-a-side and 7-a-side turf pitches.',
      'QA', 'Doha', 'Al Sadd, Doha', 'QAR', 'Asia/Qatar',
      ST_SetSRID(ST_MakePoint(51.5000, 25.2860), 4326)::geography,
      '00000000-0000-4000-a000-000000000002', true,
      '{"footwear":"TF turf shoes only — no metal or FG studs","arrive_minutes_early":10}'::jsonb, 1000, 24),
-  ('00000000-0000-4000-c000-000000000002', 'Akaz Demo Sports Park — Lusail', 'Football turf plus indoor padel and badminton.',
+  ('00000000-0000-4000-8000-000000000002', 'Akaz Demo Sports Park — Lusail', 'Football turf plus indoor padel and badminton.',
      'QA', 'Lusail', 'Lusail, Qatar', 'QAR', 'Asia/Qatar',
      ST_SetSRID(ST_MakePoint(51.4900, 25.4200), 4326)::geography,
      '00000000-0000-4000-a000-000000000002', true,
      '{"footwear":"TF turf shoes on football pitches; non-marking soles indoors"}'::jsonb, 1000, 24),
-  ('00000000-0000-4000-c000-000000000003', 'Akaz Demo Arena — Al Olaya', 'Late-night football pitches in central Riyadh.',
+  ('00000000-0000-4000-8000-000000000003', 'Akaz Demo Arena — Al Olaya', 'Late-night football pitches in central Riyadh.',
      'SA', 'Riyadh', 'Al Olaya, Riyadh', 'SAR', 'Asia/Riyadh',
      ST_SetSRID(ST_MakePoint(46.6850, 24.6900), 4326)::geography,
      '00000000-0000-4000-a000-000000000003', true,
      '{"footwear":"TF turf shoes only"}'::jsonb, 1000, 24),
-  ('00000000-0000-4000-c000-000000000004', 'Akaz Demo Courts — Al Quoz', 'Indoor padel and football centre.',
+  ('00000000-0000-4000-8000-000000000004', 'Akaz Demo Courts — Al Quoz', 'Indoor padel and football centre.',
      'AE', 'Dubai', 'Al Quoz, Dubai', 'AED', 'Asia/Dubai',
      ST_SetSRID(ST_MakePoint(55.2300, 25.1400), 4326)::geography,
      '00000000-0000-4000-a000-000000000004', false,
      '{"footwear":"Non-marking soles on padel courts"}'::jsonb, 1000, 12),
-  ('00000000-0000-4000-c000-000000000005', 'Akaz Demo Arena — Juffair', 'Seven-a-side turf pitch.',
+  ('00000000-0000-4000-8000-000000000005', 'Akaz Demo Arena — Juffair', 'Seven-a-side turf pitch.',
      'BH', 'Manama', 'Juffair, Manama', 'BHD', 'Asia/Bahrain',
      ST_SetSRID(ST_MakePoint(50.6000, 26.2100), 4326)::geography,
      NULL, true, '{"footwear":"TF turf shoes only"}'::jsonb, 1000, 24),
-  ('00000000-0000-4000-c000-000000000006', 'Akaz Demo Arena — Al Khuwair', 'Five-a-side turf pitches.',
+  ('00000000-0000-4000-8000-000000000006', 'Akaz Demo Arena — Al Khuwair', 'Five-a-side turf pitches.',
      'OM', 'Muscat', 'Al Khuwair, Muscat', 'OMR', 'Asia/Muscat',
      ST_SetSRID(ST_MakePoint(58.4300, 23.5950), 4326)::geography,
      NULL, true, '{"footwear":"TF turf shoes only"}'::jsonb, 1000, 24)
@@ -84,17 +84,17 @@ ON CONFLICT (id) DO NOTHING;
 -- closes_at earlier than opens_at means the court stays open past midnight.
 -- -----------------------------------------------------------------------------
 INSERT INTO courts (id, venue_id, name, sport, surface, capacity_players, price_per_hour_minor, slot_minutes, opens_at, closes_at) VALUES
-  ('00000000-0000-4000-d000-000000000001', '00000000-0000-4000-c000-000000000001', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 25000, 60, '16:00', '01:00'),
-  ('00000000-0000-4000-d000-000000000002', '00000000-0000-4000-c000-000000000001', 'Pitch 2 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 35000, 60, '16:00', '01:00'),
-  ('00000000-0000-4000-d000-000000000003', '00000000-0000-4000-c000-000000000002', 'Pitch A (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 38000, 60, '15:00', '00:00'),
-  ('00000000-0000-4000-d000-000000000004', '00000000-0000-4000-c000-000000000002', 'Padel Court 1',      'PADEL',     'Panoramic glass',  4, 20000, 90, '06:00', '00:00'),
-  ('00000000-0000-4000-d000-000000000005', '00000000-0000-4000-c000-000000000002', 'Badminton Court 1',  'BADMINTON', 'PU synthetic',     4,  8000, 60, '06:00', '23:00'),
-  ('00000000-0000-4000-d000-000000000006', '00000000-0000-4000-c000-000000000003', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 30000, 60, '16:00', '02:00'),
-  ('00000000-0000-4000-d000-000000000007', '00000000-0000-4000-c000-000000000003', 'Pitch 2 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 42000, 60, '16:00', '02:00'),
-  ('00000000-0000-4000-d000-000000000008', '00000000-0000-4000-c000-000000000004', 'Padel Court 1',      'PADEL',     'Panoramic glass',  4, 28000, 90, '07:00', '00:00'),
-  ('00000000-0000-4000-d000-000000000009', '00000000-0000-4000-c000-000000000004', 'Indoor Pitch',       'FOOTBALL',  'Artificial turf', 12, 40000, 60, '08:00', '00:00'),
-  ('00000000-0000-4000-d000-000000000010', '00000000-0000-4000-c000-000000000005', 'Pitch 1 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 30000, 60, '16:00', '00:00'),
-  ('00000000-0000-4000-d000-000000000011', '00000000-0000-4000-c000-000000000006', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 22000, 60, '16:00', '00:00')
+  ('00000000-0000-4000-9000-000000000001', '00000000-0000-4000-8000-000000000001', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 25000, 60, '16:00', '01:00'),
+  ('00000000-0000-4000-9000-000000000002', '00000000-0000-4000-8000-000000000001', 'Pitch 2 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 35000, 60, '16:00', '01:00'),
+  ('00000000-0000-4000-9000-000000000003', '00000000-0000-4000-8000-000000000002', 'Pitch A (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 38000, 60, '15:00', '00:00'),
+  ('00000000-0000-4000-9000-000000000004', '00000000-0000-4000-8000-000000000002', 'Padel Court 1',      'PADEL',     'Panoramic glass',  4, 20000, 90, '06:00', '00:00'),
+  ('00000000-0000-4000-9000-000000000005', '00000000-0000-4000-8000-000000000002', 'Badminton Court 1',  'BADMINTON', 'PU synthetic',     4,  8000, 60, '06:00', '23:00'),
+  ('00000000-0000-4000-9000-000000000006', '00000000-0000-4000-8000-000000000003', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 30000, 60, '16:00', '02:00'),
+  ('00000000-0000-4000-9000-000000000007', '00000000-0000-4000-8000-000000000003', 'Pitch 2 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 42000, 60, '16:00', '02:00'),
+  ('00000000-0000-4000-9000-000000000008', '00000000-0000-4000-8000-000000000004', 'Padel Court 1',      'PADEL',     'Panoramic glass',  4, 28000, 90, '07:00', '00:00'),
+  ('00000000-0000-4000-9000-000000000009', '00000000-0000-4000-8000-000000000004', 'Indoor Pitch',       'FOOTBALL',  'Artificial turf', 12, 40000, 60, '08:00', '00:00'),
+  ('00000000-0000-4000-9000-000000000010', '00000000-0000-4000-8000-000000000005', 'Pitch 1 (7-a-side)', 'FOOTBALL',  'Artificial turf', 16, 30000, 60, '16:00', '00:00'),
+  ('00000000-0000-4000-9000-000000000011', '00000000-0000-4000-8000-000000000006', 'Pitch 1 (5-a-side)', 'FOOTBALL',  'Artificial turf', 12, 22000, 60, '16:00', '00:00')
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;
