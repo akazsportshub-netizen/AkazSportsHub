@@ -9,7 +9,7 @@ import { IS_PUBLIC_KEY } from './decorators';
  * Verifies the `Authorization: Bearer <jwt>` access token (HS256, signed with JWT_SECRET)
  * on every route that is not marked @Public(). Claims used: `sub` (user id) and `roles`.
  *
- * Issuing tokens (OTP login, refresh) is not part of the backend core yet; for local
+ * Tokens are issued by OTP login and renewed by /auth/refresh (see RefreshService); for local
  * work `npm run dev:token -- <user-id> <ROLE>` prints a token.
  */
 @Injectable()

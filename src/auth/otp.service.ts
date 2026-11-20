@@ -8,7 +8,6 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { sign } from 'jsonwebtoken';
 import { apiError, errorMessage } from '../common/api-error';
 import { APP_CONFIG, AppConfig } from '../config/app-config';
 import { DatabaseService } from '../database/database.service';
@@ -26,8 +25,8 @@ import {
   otpMessage,
 } from './otp';
 import { Locale, toLocale } from '../notifications/templates';
-
-const TOKEN_LIFETIME_SECONDS = 12 * 60 * 60;
+import { ACCESS_TOKEN_SECONDS } from './refresh';
+import { RefreshService } from './refresh.service';
 
 interface SignedInUser {
   id: string;
@@ -47,6 +46,7 @@ export class OtpService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly db: DatabaseService,
     @Inject(MESSENGER) private readonly messenger: Messenger,
+    private readonly refreshTokens: RefreshService,
   ) {}
 
   /**
@@ -146,12 +146,10 @@ export class OtpService {
       }
 
       await q.query(/* sql */ `UPDATE otp_codes SET consumed_at = now() WHERE id = $1`, [row.id]);
-      const accessToken = sign({ sub: user.id, roles: user.roles }, this.config.jwtSecret, {
-        algorithm: 'HS256',
-        expiresIn: TOKEN_LIFETIME_SECONDS,
-      });
+      const accessToken = this.refreshTokens.signAccessToken(user.id, user.roles);
+      const refreshToken = await this.refreshTokens.issue(q, user.id);
       const { id, full_name, country_code, locale: userLocale, roles } = user;
-      return { failed: false as const, body: { access_token: accessToken, expires_in: TOKEN_LIFETIME_SECONDS, user: { id, full_name, country_code, locale: userLocale, roles, phone_e164: phone } } };
+      return { failed: false as const, body: { access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TOKEN_SECONDS, user: { id, full_name, country_code, locale: userLocale, roles, phone_e164: phone } } };
     }).then((result) => {
       if (result.failed) throw new UnauthorizedException(apiError('INVALID_CODE', 'That code is wrong or has expired.'));
       return result.body;

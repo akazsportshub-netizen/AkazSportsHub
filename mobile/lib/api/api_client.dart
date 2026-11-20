@@ -35,8 +35,16 @@ class ApiClient {
   /// The signed-in user's id, so screens can tell which share is theirs.
   String? userId;
 
+  /// Sent to /auth/refresh when the access token has expired. Replaced by every refresh.
+  String? refreshToken;
+
+  /// Called after a refresh, so the app can save the new tokens.
+  void Function(String accessToken, String refreshToken)? onTokensRefreshed;
+
   /// Called when the API rejects the token, so the app can return to sign-in.
   void Function()? onUnauthenticated;
+
+  Future<bool>? _refreshing;
 
   static const Duration _timeout = Duration(seconds: 20);
 
@@ -45,9 +53,9 @@ class ApiClient {
   Future<List<DevUser>> devUsers() async =>
       asMapList(await _send('GET', '/dev/auth/users')).map(DevUser.fromJson).toList();
 
-  Future<({String token, DevUser user})> devSignIn(String userId) async {
+  Future<({String token, String? refreshToken, DevUser user})> devSignIn(String userId) async {
     final body = asMap(await _send('POST', '/dev/auth/token', body: {'user_id': userId}));
-    return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
+    return (token: asString(body['access_token']), refreshToken: asStringOrNull(body['refresh_token']), user: DevUser.fromJson(asMap(body['user'])));
   }
 
   // ---- sign-in with a phone number ----------------------------------------
@@ -59,14 +67,57 @@ class ApiClient {
 
   /// Exchanges the code for a token. A first-time number needs [fullName]; without it the
   /// server answers NAME_REQUIRED and keeps the code usable.
-  Future<({String token, DevUser user})> verifySignInCode(String phone, String code, {String? fullName, String? locale}) async {
+  Future<({String token, String? refreshToken, DevUser user})> verifySignInCode(String phone, String code, {String? fullName, String? locale}) async {
     final body = asMap(await _send('POST', '/auth/otp/verify', body: {
       'phone': phone,
       'code': code,
       if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
       if (locale != null) 'locale': locale,
     }));
-    return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
+    return (token: asString(body['access_token']), refreshToken: asStringOrNull(body['refresh_token']), user: DevUser.fromJson(asMap(body['user'])));
+  }
+
+  /// Ends this device's session on the server. Never throws: signing out must always work.
+  Future<void> revokeRefreshToken(String token) async {
+    try {
+      await _send('POST', '/auth/logout', body: {'refresh_token': token});
+    } on ApiException {
+      // Offline or already expired: the token stops working by itself in time.
+    }
+  }
+
+  /// One refresh at a time, so several requests failing together do not use the same token twice.
+  Future<bool> _refreshTokens() => _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+
+  /// True when new tokens were stored; false when the server no longer accepts the refresh token.
+  /// Throws ApiException when the server cannot be reached, so a bad connection never signs anyone out.
+  Future<bool> _doRefresh() async {
+    final token = refreshToken;
+    if (token == null) return false;
+    final http.Response response;
+    try {
+      response = await _http
+          .post(
+            Uri.parse('$baseUrl/v1/auth/refresh'),
+            headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': token}),
+          )
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('The server took too long to answer. Is the backend running?');
+    } on Exception {
+      throw ApiException('Could not reach the server at $baseUrl. Check that Docker is running and the address is right.');
+    }
+    if (response.statusCode >= 500) throw ApiException('The server had a problem. Please try again.', statusCode: response.statusCode);
+    if (response.statusCode != 200) {
+      refreshToken = null;
+      return false;
+    }
+    final body = asMap(jsonDecode(utf8.decode(response.bodyBytes)));
+    accessToken = asString(body['access_token']);
+    refreshToken = asString(body['refresh_token']);
+    onTokensRefreshed?.call(accessToken!, refreshToken!);
+    return true;
   }
 
   /// Saves the player's home area so nearby games can invite them. The server rounds it to about 100 m.
@@ -181,7 +232,8 @@ class ApiClient {
 
   // ---- transport -----------------------------------------------------------
 
-  Future<Object?> _send(String method, String path, {Map<String, String>? query, Map<String, Object?>? body}) async {
+  Future<Object?> _send(String method, String path, {Map<String, String>? query, Map<String, Object?>? body, bool retryAfterRefresh = true}) async {
+    final sentWith = accessToken;
     final uri = Uri.parse('$baseUrl/v1$path').replace(queryParameters: query == null || query.isEmpty ? null : query);
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -212,6 +264,12 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final error = _readError(decoded, response.statusCode);
+    if (error.isUnauthenticated && retryAfterRefresh && sentWith != null && !path.startsWith('/auth/')) {
+      // Someone else may have refreshed while this request was in flight: then just retry with the new token.
+      if (accessToken != sentWith || await _refreshTokens()) {
+        return _send(method, path, query: query, body: body, retryAfterRefresh: false);
+      }
+    }
     if (error.isUnauthenticated) onUnauthenticated?.call();
     throw error;
   }

@@ -21,11 +21,17 @@ class Session extends ChangeNotifier {
     api.onUnauthenticated = () {
       if (_user != null) signOut();
     };
+    api.onTokensRefreshed = (accessToken, refreshToken) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, accessToken);
+      await prefs.setString(_refreshKey, refreshToken);
+    };
   }
 
   final ApiClient api;
 
   static const _tokenKey = 'akaz.access_token';
+  static const _refreshKey = 'akaz.refresh_token';
   static const _userKey = 'akaz.user';
   static const _languageKey = 'akaz.language';
 
@@ -63,9 +69,11 @@ class Session extends ChangeNotifier {
       try {
         _user = DevUser.fromJson(asMap(jsonDecode(userJson)));
         api.accessToken = token;
+        api.refreshToken = prefs.getString(_refreshKey);
         api.userId = _user!.id;
       } on FormatException {
         await prefs.remove(_tokenKey);
+        await prefs.remove(_refreshKey);
         await prefs.remove(_userKey);
       }
     }
@@ -78,12 +86,18 @@ class Session extends ChangeNotifier {
   Future<void> signInWithCode(String phone, String code, {String? fullName}) async =>
       _start(await api.verifySignInCode(phone, code, fullName: fullName, locale: _language));
 
-  Future<void> _start(({String token, DevUser user}) result) async {
+  Future<void> _start(({String token, String? refreshToken, DevUser user}) result) async {
     api.accessToken = result.token;
+    api.refreshToken = result.refreshToken;
     api.userId = result.user.id;
     _user = result.user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, result.token);
+    if (result.refreshToken != null) {
+      await prefs.setString(_refreshKey, result.refreshToken!);
+    } else {
+      await prefs.remove(_refreshKey);
+    }
     await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
     // The language chosen in the app decides the language of our messages.
     unawaited(api.setLanguage(_language).catchError((Object _) {}));
@@ -91,11 +105,16 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final refreshToken = api.refreshToken;
     api.accessToken = null;
+    api.refreshToken = null;
     api.userId = null;
     _user = null;
+    // End the session on the server too, so a copied token cannot be used later.
+    if (refreshToken != null) unawaited(api.revokeRefreshToken(refreshToken));
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshKey);
     await prefs.remove(_userKey);
     notifyListeners();
   }
