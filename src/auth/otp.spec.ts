@@ -48,6 +48,13 @@ describe('codes', () => {
   });
 });
 
+describe('otpMessage (Arabic)', () => {
+  it('carries the code in Arabic and fits one SMS segment', () => {
+    const text = otpMessage('123456', 'ar');
+    assert.ok(text.includes('123456') && /[\u0600-\u06FF]/.test(text) && text.length <= 70, `${text.length}`);
+  });
+});
+
 describe('otpMessage', () => {
   it('carries the code and a warning', () => {
     const text = otpMessage('123456');

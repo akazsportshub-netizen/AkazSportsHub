@@ -25,6 +25,7 @@ import {
   hashCode,
   otpMessage,
 } from './otp';
+import { Locale, toLocale } from '../notifications/templates';
 
 const TOKEN_LIFETIME_SECONDS = 12 * 60 * 60;
 
@@ -32,6 +33,7 @@ interface SignedInUser {
   id: string;
   full_name: string;
   country_code: string;
+  locale: string;
   roles: string[];
 }
 
@@ -51,7 +53,7 @@ export class OtpService {
    * Sends a code. The answer is the same whether or not the number has an account, so this
    * cannot be used to find out who is registered.
    */
-  async requestCode(phone: string, ip: string): Promise<{ sent: true; expires_in: number }> {
+  async requestCode(phone: string, ip: string, locale?: Locale): Promise<{ sent: true; expires_in: number }> {
     if (!this.byIp.allow(ip)) throw this.tooMany();
 
     const [{ recent }] = await this.db.query<{ recent: number }>(
@@ -70,6 +72,8 @@ export class OtpService {
     );
     if (blocked) return { sent: true, expires_in: OTP_TTL_SECONDS };
 
+    // An existing account's own language wins; otherwise the app's language.
+    const [known] = await this.db.query<{ locale: string }>(/* sql */ `SELECT locale FROM users WHERE phone_e164 = $1`, [phone]);
     const code = generateCode();
     await this.db.query(
       /* sql */ `
@@ -78,7 +82,7 @@ export class OtpService {
       [phone, hashCode(code, phone, this.config.jwtSecret), OTP_TTL_SECONDS],
     );
     try {
-      await this.messenger.send(phone, otpMessage(code), 'SMS');
+      await this.messenger.send(phone, otpMessage(code, known ? toLocale(known.locale) : (locale ?? 'en')), 'SMS');
     } catch (error) {
       this.logger.error(`Could not send a sign-in code: ${errorMessage(error)}`);
       throw new BadGatewayException(apiError('SEND_FAILED', 'We could not send the code. Please try again.'));
@@ -87,7 +91,7 @@ export class OtpService {
   }
 
   /** Checks the newest unused code for the number, then signs the person in, creating their account on first use. */
-  async verifyCode(phone: string, code: string, fullName: string | undefined, ip: string) {
+  async verifyCode(phone: string, code: string, fullName: string | undefined, ip: string, locale?: Locale) {
     if (!this.byIp.allow(`verify:${ip}`)) throw this.tooMany();
 
     return this.db.tx(async (q) => {
@@ -112,7 +116,7 @@ export class OtpService {
 
       let [user] = await q.query<SignedInUser>(
         /* sql */ `
-        SELECT u.id, u.full_name, u.country_code, u.is_active,
+        SELECT u.id, u.full_name, u.country_code, u.locale, u.is_active,
                coalesce(array_agg(r.role ORDER BY r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
           FROM users u LEFT JOIN user_roles r ON r.user_id = u.id
          WHERE u.phone_e164 = $1
@@ -132,10 +136,10 @@ export class OtpService {
         }
         [user] = await q.query<SignedInUser>(
           /* sql */ `
-          INSERT INTO users (full_name, phone_e164, country_code)
-          VALUES ($1, $2, $3)
-          RETURNING id, full_name, country_code, ARRAY[]::text[] AS roles`,
-          [fullName.trim(), phone, country],
+          INSERT INTO users (full_name, phone_e164, country_code, locale)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, full_name, country_code, locale, ARRAY[]::text[] AS roles`,
+          [fullName.trim(), phone, country, locale ?? 'en'],
         );
         await q.query(/* sql */ `INSERT INTO user_roles (user_id, role) VALUES ($1, 'PLAYER')`, [user.id]);
         user.roles = ['PLAYER'];
@@ -146,8 +150,8 @@ export class OtpService {
         algorithm: 'HS256',
         expiresIn: TOKEN_LIFETIME_SECONDS,
       });
-      const { id, full_name, country_code, roles } = user;
-      return { failed: false as const, body: { access_token: accessToken, expires_in: TOKEN_LIFETIME_SECONDS, user: { id, full_name, country_code, roles, phone_e164: phone } } };
+      const { id, full_name, country_code, locale: userLocale, roles } = user;
+      return { failed: false as const, body: { access_token: accessToken, expires_in: TOKEN_LIFETIME_SECONDS, user: { id, full_name, country_code, locale: userLocale, roles, phone_e164: phone } } };
     }).then((result) => {
       if (result.failed) throw new UnauthorizedException(apiError('INVALID_CODE', 'That code is wrong or has expired.'));
       return result.body;

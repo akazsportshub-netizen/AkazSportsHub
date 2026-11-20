@@ -653,8 +653,9 @@ export class PaymentsService {
                   {
                     userId,
                     phone: person.phone,
+                    locale: person.locale,
                     kind: 'SHARE_REFUND' as const,
-                    vars: { court: context.court, venue: context.venue, when: context.when, amountMinor: row.refundMinor, currency: booking.currency },
+                    vars: { court: context.court, venue: context.venue, startsAt: context.startsAt, timezone: context.timezone, amountMinor: row.refundMinor, currency: booking.currency },
                   },
                 ];
               }),

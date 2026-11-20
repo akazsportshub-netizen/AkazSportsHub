@@ -1,12 +1,13 @@
 import { CurrencyCode } from '../common/money';
 import { Queryable } from '../database/database.service';
-import { formatWhen } from './templates';
+import { Locale, toLocale } from './templates';
 
 export interface BookingContext {
   court: string;
   venue: string;
   sport: string;
-  when: string;
+  startsAt: Date;
+  timezone: string;
   totalMinor: number;
   currency: CurrencyCode;
   organizerId: string;
@@ -38,18 +39,19 @@ export async function bookingContext(q: Queryable, bookingId: string): Promise<B
     court: row.court,
     venue: row.venue,
     sport: row.sport,
-    when: formatWhen(row.starts_at, row.timezone),
+    startsAt: row.starts_at,
+    timezone: row.timezone,
     totalMinor: row.total_minor,
     currency: row.currency,
     organizerId: row.organizer_id,
   };
 }
 
-export async function phonesOf(q: Queryable, userIds: readonly string[]): Promise<Map<string, { phone: string; name: string }>> {
+export async function phonesOf(q: Queryable, userIds: readonly string[]): Promise<Map<string, { phone: string; name: string; locale: Locale }>> {
   if (userIds.length === 0) return new Map();
-  const rows = await q.query<{ id: string; phone_e164: string; full_name: string }>(
-    /* sql */ `SELECT id, phone_e164, full_name FROM users WHERE id = ANY($1::uuid[])`,
+  const rows = await q.query<{ id: string; phone_e164: string; full_name: string; locale: string }>(
+    /* sql */ `SELECT id, phone_e164, full_name, locale FROM users WHERE id = ANY($1::uuid[])`,
     [userIds],
   );
-  return new Map(rows.map((row) => [row.id, { phone: row.phone_e164, name: row.full_name }]));
+  return new Map(rows.map((row) => [row.id, { phone: row.phone_e164, name: row.full_name, locale: toLocale(row.locale) }]));
 }

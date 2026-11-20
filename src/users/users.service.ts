@@ -15,6 +15,11 @@ export class UsersService {
 
   constructor(private readonly db: DatabaseService) {}
 
+  async setLanguage(userId: string, locale: 'en' | 'ar'): Promise<{ locale: 'en' | 'ar' }> {
+    await this.db.query(/* sql */ `UPDATE users SET locale = $2 WHERE id = $1`, [userId, locale]);
+    return { locale };
+  }
+
   async lookupByPhone(callerId: string, phone: string): Promise<UserLookupResult> {
     if (!this.limiter.allow(callerId)) {
       throw new HttpException(apiError('RATE_LIMITED', 'Too many lookups. Try again in a minute.'), HttpStatus.TOO_MANY_REQUESTS);

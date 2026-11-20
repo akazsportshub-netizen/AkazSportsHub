@@ -15,6 +15,7 @@ interface DevUser {
   id: string;
   full_name: string;
   country_code: string;
+  locale?: string;
   phone_e164?: string;
   roles: string[];
 }
@@ -42,7 +43,7 @@ export class DevAuthController {
     this.assertEnabled();
     return this.db.query<DevUser>(
       /* sql */ `
-      SELECT u.id, u.full_name, u.country_code, u.phone_e164,
+      SELECT u.id, u.full_name, u.country_code, u.locale, u.phone_e164,
              coalesce(array_agg(r.role ORDER BY r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
         FROM users u
         LEFT JOIN user_roles r ON r.user_id = u.id
@@ -59,7 +60,7 @@ export class DevAuthController {
     this.assertEnabled();
     const [user] = await this.db.query<DevUser>(
       /* sql */ `
-      SELECT u.id, u.full_name, u.country_code,
+      SELECT u.id, u.full_name, u.country_code, u.locale,
              coalesce(array_agg(r.role ORDER BY r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
         FROM users u
         LEFT JOIN user_roles r ON r.user_id = u.id

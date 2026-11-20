@@ -239,12 +239,13 @@ export class BookingsService {
               {
                 userId: payerId,
                 phone: friend.phone,
+                locale: friend.locale,
                 kind: 'SHARE_INVITE' as const,
                 vars: {
                   who: friends.get(user.id)?.name,
                   court: context.court,
                   venue: context.venue,
-                  when: context.when,
+                  startsAt: context.startsAt, timezone: context.timezone,
                   amountMinor: allocations[index].amountMinor,
                   currency: context.currency,
                   holdMinutes: this.config.holdMinutes,

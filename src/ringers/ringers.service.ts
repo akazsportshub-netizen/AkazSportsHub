@@ -174,12 +174,13 @@ export class RingersService {
               {
                 userId: row.user_id,
                 phone: person.phone,
+                locale: person.locale,
                 kind: 'RINGER_INVITE' as const,
                 vars: {
                   sport: context.sport,
                   court: context.court,
                   venue: context.venue,
-                  when: context.when,
+                  startsAt: context.startsAt, timezone: context.timezone,
                   amountMinor: ringerShareMinor(context.totalMinor, players),
                   currency: context.currency,
                 },
@@ -303,8 +304,9 @@ export class RingersService {
             {
               userId: context.organizerId,
               phone: organizer.phone,
+              locale: organizer.locale,
               kind: 'RINGER_JOINED',
-              vars: { who: people.get(user.id)?.name, court: context.court, venue: context.venue, when: context.when },
+              vars: { who: people.get(user.id)?.name, court: context.court, venue: context.venue, startsAt: context.startsAt, timezone: context.timezone },
             },
           ]);
         }

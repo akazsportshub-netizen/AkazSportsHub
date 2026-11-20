@@ -1,11 +1,13 @@
 import { Queryable } from '../database/database.service';
-import { MessageKind, MessageVars, renderMessage } from './templates';
+import { Locale, MessageKind, MessageVars, renderMessage } from './templates';
 
 export interface OutboundMessage {
   userId: string;
   phone: string;
   kind: MessageKind;
   vars: MessageVars;
+  /** The recipient's language; English if left out. */
+  locale?: Locale;
 }
 
 /**
@@ -23,7 +25,7 @@ export async function queueMessages(q: Queryable, messages: readonly OutboundMes
       messages.map((m) => m.userId),
       messages.map((m) => m.phone),
       messages.map((m) => m.kind),
-      messages.map((m) => renderMessage(m.kind, m.vars)),
+      messages.map((m) => renderMessage(m.kind, m.vars, m.locale ?? 'en')),
     ],
   );
 }
