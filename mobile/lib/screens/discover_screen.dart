@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
 import '../l10n/app_strings.dart';
 import '../util/format.dart';
+import '../util/location.dart';
 import '../widgets.dart';
 import 'venue_screen.dart';
 
@@ -30,9 +34,10 @@ const List<_City> _cities = [
 const List<String> _sports = ['FOOTBALL', 'PADEL', 'BADMINTON', 'BASKETBALL', 'VOLLEYBALL', 'TENNIS', 'CRICKET'];
 
 class DiscoverScreen extends StatefulWidget {
-  const DiscoverScreen({super.key, required this.api, required this.onBookingsChanged});
+  const DiscoverScreen({super.key, required this.api, required this.onBookingsChanged, this.location = const DeviceLocationProvider()});
 
   final ApiClient api;
+  final LocationProvider location;
   final VoidCallback onBookingsChanged;
 
   @override
@@ -40,7 +45,13 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
+  static const _askedHomeAreaKey = 'akaz.asked_home_area';
+
   _City _city = _cities.first;
+
+  /// The phone's position when "Near me" is chosen; otherwise the chosen city is used.
+  ({double lat, double lng})? _here;
+  bool _locating = false;
   String? _sport;
   late Future<List<Venue>> _venues;
 
@@ -50,27 +61,86 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     _venues = _load();
   }
 
-  Future<List<Venue>> _load() => widget.api.nearbyVenues(lat: _city.lat, lng: _city.lng, radiusKm: 30, sport: _sport);
+  Future<List<Venue>> _load() {
+    final centre = _here ?? (lat: _city.lat, lng: _city.lng);
+    return widget.api.nearbyVenues(lat: centre.lat, lng: centre.lng, radiusKm: 30, sport: _sport);
+  }
 
   void _reload() => setState(() { _venues = _load(); });
+
+  Future<void> _useMyLocation() async {
+    if (_locating) return;
+    setState(() { _locating = true; });
+    final result = await widget.location.current();
+    if (!mounted) return;
+    setState(() { _locating = false; });
+    switch (result) {
+      case LocationFound(:final lat, :final lng):
+        _here = (lat: lat, lng: lng);
+        _reload();
+        unawaited(_offerHomeArea(lat, lng));
+      case LocationDenied():
+        showMessage(context, context.t('location_denied'));
+      case LocationOff():
+        showMessage(context, context.t('location_off'));
+      case LocationFailed():
+        showMessage(context, context.t('location_failed'));
+    }
+  }
+
+  /// Asked once: players without a saved area are never invited to nearby games.
+  Future<void> _offerHomeArea(double lat, double lng) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_askedHomeAreaKey) == true || !mounted) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.t('home_title')),
+        content: Text(context.t('home_body')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.t('home_no'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.t('home_yes'))),
+        ],
+      ),
+    );
+    await prefs.setBool(_askedHomeAreaKey, true);
+    if (yes != true || !mounted) return;
+    try {
+      await widget.api.saveHomeLocation(lat: lat, lng: lng, openToRinger: true);
+      if (mounted) showMessage(context, context.t('home_saved'));
+    } on ApiException catch (error) {
+      if (mounted) showMessage(context, error.message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (_locating) const LinearProgressIndicator(),
         SizedBox(
           height: 52,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 8),
+                child: ChoiceChip(
+                  avatar: const Icon(Icons.my_location, size: 18),
+                  label: Text(context.t('near_me')),
+                  selected: _here != null,
+                  onSelected: (_) => _useMyLocation(),
+                ),
+              ),
               for (final city in _cities)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
                     label: Text(context.t(city.key)),
-                    selected: city == _city,
+                    selected: _here == null && city == _city,
                     onSelected: (_) {
+                      _here = null;
                       _city = city;
                       _reload();
                     },
@@ -86,7 +156,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsetsDirectional.only(end: 8),
                 child: FilterChip(
                   label: Text(context.t('all_sports')),
                   selected: _sport == null,
@@ -98,7 +168,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               ),
               for (final sport in _sports)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: FilterChip(
                     label: Text(context.sportName(sport)),
                     selected: _sport == sport,
@@ -123,9 +193,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               if (venues.isEmpty) {
                 return EmptyState(
                   icon: Icons.sports_soccer_outlined,
-                  message: _sport == null
-                      ? context.t('no_venues', {'city': context.t(_city.key)})
-                      : context.t('no_venues_sport', {'sport': context.sportName(_sport!), 'city': context.t(_city.key)}),
+                  message: _here != null
+                      ? (_sport == null
+                          ? context.t('no_venues_here')
+                          : context.t('no_venues_here_sport', {'sport': context.sportName(_sport!)}))
+                      : (_sport == null
+                          ? context.t('no_venues', {'city': context.t(_city.key)})
+                          : context.t('no_venues_sport', {'sport': context.sportName(_sport!), 'city': context.t(_city.key)})),
                 );
               }
               return RefreshIndicator(

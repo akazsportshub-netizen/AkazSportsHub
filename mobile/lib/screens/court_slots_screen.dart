@@ -93,7 +93,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
                 final selected = day == _day;
                 final parts = formatCalendarDay(day).split(' ');
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
                     selected: selected,
                     onSelected: (_) {

@@ -69,6 +69,15 @@ class ApiClient {
     return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
   }
 
+  /// Saves the player's home area so nearby games can invite them. The server rounds it to about 100 m.
+  Future<void> saveHomeLocation({required double lat, required double lng, bool? openToRinger}) async {
+    await _send('PATCH', '/users/me/location', body: {
+      'lat': lat,
+      'lng': lng,
+      if (openToRinger != null) 'open_to_ringer': openToRinger,
+    });
+  }
+
   /// Sets the language for the messages we send this player (the app switches its own screens).
   Future<void> setLanguage(String locale) async {
     await _send('PATCH', '/users/me/language', body: {'locale': locale});

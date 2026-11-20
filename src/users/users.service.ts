@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { apiError } from '../common/api-error';
 import { DatabaseService } from '../database/database.service';
+import { coarsen } from './location';
 import { RateLimiter } from './rate-limit';
 
 export interface UserLookupResult {
@@ -14,6 +15,19 @@ export class UsersService {
   private readonly limiter = new RateLimiter(20, 60_000);
 
   constructor(private readonly db: DatabaseService) {}
+
+  async setLocation(userId: string, lat: number, lng: number, openToRinger?: boolean) {
+    const [row] = await this.db.query<{ open_to_ringer: boolean }>(
+      /* sql */ `
+      UPDATE users
+         SET home_location = ST_SetSRID(ST_MakePoint($3::float8, $2::float8), 4326)::geography,
+             open_to_ringer = COALESCE($4::boolean, open_to_ringer)
+       WHERE id = $1
+      RETURNING open_to_ringer`,
+      [userId, coarsen(lat), coarsen(lng), openToRinger ?? null],
+    );
+    return { lat: coarsen(lat), lng: coarsen(lng), open_to_ringer: row?.open_to_ringer ?? false };
+  }
 
   async setLanguage(userId: string, locale: 'en' | 'ar'): Promise<{ locale: 'en' | 'ar' }> {
     await this.db.query(/* sql */ `UPDATE users SET locale = $2 WHERE id = $1`, [userId, locale]);
