@@ -38,21 +38,23 @@ List<Map<String, dynamic>> asMapList(Object? value) =>
 // ---------------------------------------------------------------------------
 
 class DevUser {
-  DevUser({required this.id, required this.fullName, required this.countryCode, required this.roles});
+  DevUser({required this.id, required this.fullName, required this.countryCode, required this.roles, this.phone});
 
   factory DevUser.fromJson(Map<String, dynamic> json) => DevUser(
         id: asString(json['id']),
         fullName: asString(json['full_name']),
         countryCode: asString(json['country_code']),
         roles: asStringList(json['roles']),
+        phone: asStringOrNull(json['phone_e164']),
       );
 
   final String id;
   final String fullName;
   final String countryCode;
+  final String? phone;
   final List<String> roles;
 
-  Map<String, dynamic> toJson() => {'id': id, 'full_name': fullName, 'country_code': countryCode, 'roles': roles};
+  Map<String, dynamic> toJson() => {'id': id, 'full_name': fullName, 'country_code': countryCode, 'roles': roles, if (phone != null) 'phone_e164': phone};
 }
 
 class Venue {

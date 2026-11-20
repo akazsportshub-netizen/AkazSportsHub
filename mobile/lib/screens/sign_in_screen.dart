@@ -99,7 +99,7 @@ class _SignInScreenState extends State<SignInScreen> {
       child: ListTile(
         leading: CircleAvatar(child: Text(user.fullName.isEmpty ? '?' : user.fullName[0])),
         title: Text(user.fullName),
-        subtitle: Text('${user.roles.join(', ')} · ${user.countryCode}'),
+        subtitle: Text('${user.roles.join(', ')} · ${user.countryCode}${user.phone == null ? '' : ' · ${user.phone}'}'),
         trailing: busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.chevron_right),
         onTap: _signingInAs == null ? () => _signIn(user) : null,
       ),
