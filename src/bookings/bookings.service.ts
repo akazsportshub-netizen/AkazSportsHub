@@ -9,6 +9,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { AuthUser, hasRole } from '../auth/auth.types';
+import { bookingContext, phonesOf } from '../notifications/context';
+import { queueMessages } from '../notifications/outbox';
 import { apiError } from '../common/api-error';
 import { platformFeeMinor, slotPriceMinor } from '../common/money';
 import { APP_CONFIG, AppConfig } from '../config/app-config';
@@ -223,6 +225,35 @@ export class BookingsService {
           FROM unnest($2::uuid[], $3::bigint[]) AS t(user_id, amount_minor)`,
         [booking.id, payerIds, allocations.map((share) => share.amountMinor), court.currency],
       );
+
+      // Tell each friend who was added, in the same transaction as the booking.
+      const friends = await phonesOf(q, [user.id, ...payerIds]);
+      const context = await bookingContext(q, booking.id);
+      if (context) {
+        await queueMessages(
+          q,
+          payerIds.flatMap((payerId, index) => {
+            const friend = friends.get(payerId);
+            if (payerId === user.id || !friend) return [];
+            return [
+              {
+                userId: payerId,
+                phone: friend.phone,
+                kind: 'SHARE_INVITE' as const,
+                vars: {
+                  who: friends.get(user.id)?.name,
+                  court: context.court,
+                  venue: context.venue,
+                  when: context.when,
+                  amountMinor: allocations[index].amountMinor,
+                  currency: context.currency,
+                  holdMinutes: this.config.holdMinutes,
+                },
+              },
+            ];
+          }),
+        );
+      }
 
       return { id: booking.id, holdExpiresAt: booking.hold_expires_at, staleHoldIds };
     });

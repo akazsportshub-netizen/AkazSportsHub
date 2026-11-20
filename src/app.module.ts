@@ -8,6 +8,7 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { MatchesModule } from './matches/matches.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { QueuesModule } from './queues/queues.module';
 import { RingersModule } from './ringers/ringers.module';
@@ -25,6 +26,7 @@ import { WorkersModule } from './workers/workers.module';
     ConfigModule,
     DatabaseModule,
     QueuesModule,
+    NotificationsModule,
     AuthModule,
     VenuesModule,
     UsersModule,

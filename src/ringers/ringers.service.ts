@@ -2,6 +2,8 @@ import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundExce
 import { AuthUser } from '../auth/auth.types';
 import { apiError } from '../common/api-error';
 import { DatabaseService, PG_UNIQUE_VIOLATION, pgErrorCode } from '../database/database.service';
+import { bookingContext, phonesOf } from '../notifications/context';
+import { queueMessages } from '../notifications/outbox';
 import { ringerShareMinor } from '../payments/rebalance';
 import { QueuesService } from '../queues/queues.service';
 import { hasNextWave, inviteBudget, RINGER_MIN_RELIABILITY, RINGER_WAVE_INTERVAL_MS, ringerWave } from './ringer-waves';
@@ -150,6 +152,42 @@ export class RingersService {
         ],
       );
       await q.query(/* sql */ `UPDATE ringer_requests SET last_wave = $2::int WHERE id = $1`, [requestId, wave]);
+
+      // Message the people just invited, in the same transaction as their invitations.
+      const context = invited.length > 0 ? await bookingContext(q, request.booking_id) : null;
+      if (context) {
+        const [{ players }] = await q.query<{ players: number }>(
+          /* sql */ `
+          SELECT count(*)::int AS players
+            FROM booking_split_shares
+           WHERE booking_id = $1
+             AND ((NOT is_ringer AND status IN ('PAID', 'PENDING')) OR (is_ringer AND status = 'PAID'))`,
+          [request.booking_id],
+        );
+        const people = await phonesOf(q, invited.map((row) => row.user_id));
+        await queueMessages(
+          q,
+          invited.flatMap((row) => {
+            const person = people.get(row.user_id);
+            if (!person) return [];
+            return [
+              {
+                userId: row.user_id,
+                phone: person.phone,
+                kind: 'RINGER_INVITE' as const,
+                vars: {
+                  sport: context.sport,
+                  court: context.court,
+                  venue: context.venue,
+                  when: context.when,
+                  amountMinor: ringerShareMinor(context.totalMinor, players),
+                  currency: context.currency,
+                },
+              },
+            ];
+          }),
+        );
+      }
       return { invited: invited.length, state: 'RECRUITING' as const, next: hasNextWave(wave) };
     });
 
@@ -255,6 +293,22 @@ export class RingersService {
         RETURNING id`,
         [request.booking_id, user.id, amountMinor, booking.currency],
       );
+
+      const context = await bookingContext(q, request.booking_id);
+      if (context) {
+        const people = await phonesOf(q, [context.organizerId, user.id]);
+        const organizer = people.get(context.organizerId);
+        if (organizer) {
+          await queueMessages(q, [
+            {
+              userId: context.organizerId,
+              phone: organizer.phone,
+              kind: 'RINGER_JOINED',
+              vars: { who: people.get(user.id)?.name, court: context.court, venue: context.venue, when: context.when },
+            },
+          ]);
+        }
+      }
 
       await q.query(/* sql */ `UPDATE ringer_invites SET status = 'ACCEPTED', responded_at = now() WHERE id = $1`, [inviteId]);
       const [updated] = await q.query<{ status: string }>(

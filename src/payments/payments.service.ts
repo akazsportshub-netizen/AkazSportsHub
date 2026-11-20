@@ -18,6 +18,8 @@ import { LockService } from '../queues/lock.service';
 import { QueuesService } from '../queues/queues.service';
 import { ProviderEvent, ProviderEventOutcome } from './payment-events';
 import { PaymentFlow, PaymentRef } from './payment-gateway';
+import { bookingContext, phonesOf } from '../notifications/context';
+import { queueMessages } from '../notifications/outbox';
 import { planRebalance } from './rebalance';
 import { PaymentGatewayRegistry } from './payment-gateway.registry';
 
@@ -617,6 +619,7 @@ export class PaymentsService {
         }
 
         let refunds = 0;
+        const refunded: { shareId: string; refundMinor: number }[] = [];
         for (const step of plan.steps) {
           await q.query(/* sql */ `UPDATE booking_split_shares SET amount_minor = $2 WHERE id = $1`, [step.shareId, step.newAmountMinor]);
           if (step.refundMinor > 0) {
@@ -627,6 +630,35 @@ export class PaymentsService {
               [step.shareId, step.attemptId, step.refundMinor, booking.currency],
             );
             refunds += 1;
+            refunded.push({ shareId: step.shareId, refundMinor: step.refundMinor });
+          }
+        }
+
+        // Tell each player their share dropped and how much is coming back.
+        if (refunded.length > 0) {
+          const owners = await q.query<{ id: string; user_id: string }>(
+            /* sql */ `SELECT id, user_id FROM booking_split_shares WHERE id = ANY($1::uuid[])`,
+            [refunded.map((row) => row.shareId)],
+          );
+          const people = await phonesOf(q, owners.map((row) => row.user_id));
+          const context = await bookingContext(q, bookingId);
+          if (context) {
+            await queueMessages(
+              q,
+              refunded.flatMap((row) => {
+                const userId = owners.find((owner) => owner.id === row.shareId)?.user_id;
+                const person = userId ? people.get(userId) : undefined;
+                if (!userId || !person) return [];
+                return [
+                  {
+                    userId,
+                    phone: person.phone,
+                    kind: 'SHARE_REFUND' as const,
+                    vars: { court: context.court, venue: context.venue, when: context.when, amountMinor: row.refundMinor, currency: booking.currency },
+                  },
+                ];
+              }),
+            );
           }
         }
         return refunds;

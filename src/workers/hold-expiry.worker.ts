@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { BookingsService } from '../bookings/bookings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { BookingJobData, JOB_EXPIRE_HOLD, JOB_SWEEP } from '../queues/queue.constants';
 
@@ -22,6 +23,7 @@ export class HoldExpiryWorker {
   constructor(
     private readonly bookings: BookingsService,
     private readonly payments: PaymentsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async process(job: Job): Promise<void> {
@@ -35,9 +37,10 @@ export class HoldExpiryWorker {
         const holds = await this.bookings.sweep();
         const payments = await this.payments.sweep();
         const ringers = await this.payments.sweepRingers();
+        const messages = await this.notifications.dispatchDue();
         const busy =
-          holds.expired + holds.completed + payments.captures + payments.releases + payments.flagged + ringers.expiredShares + ringers.settled > 0;
-        if (busy) this.logger.log(`Sweep: ${JSON.stringify({ ...holds, ...payments, ...ringers })}`);
+          holds.expired + holds.completed + payments.captures + payments.releases + payments.flagged + ringers.expiredShares + ringers.settled + messages.sent + messages.failed > 0;
+        if (busy) this.logger.log(`Sweep: ${JSON.stringify({ ...holds, ...payments, ...ringers, messages })}`);
         return;
       }
       default:
