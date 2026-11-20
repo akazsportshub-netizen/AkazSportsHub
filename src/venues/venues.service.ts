@@ -142,7 +142,10 @@ export class VenuesService {
                  WHERE b.court_id = s.court_id
                    AND b.slot_range && tstzrange(s.starts_at, s.ends_at, '[)')
                    AND (b.status IN ('CONFIRMED', 'COMPLETED')
-                        OR (b.status = 'HOLD' AND b.hold_expires_at > now()))
+                        OR (b.status = 'HOLD' AND b.hold_expires_at > now())))
+              AND NOT EXISTS (
+                SELECT 1 FROM court_blocks k
+                 WHERE k.court_id = s.court_id AND k.slot_range && tstzrange(s.starts_at, s.ends_at, '[)')
              )) AS available
         FROM slots s
        ORDER BY s.starts_at`,

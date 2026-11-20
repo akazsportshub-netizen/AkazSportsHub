@@ -4,6 +4,7 @@ import '../l10n/app_strings.dart';
 import '../session.dart';
 import 'discover_screen.dart';
 import 'invites_screen.dart';
+import 'manager_screen.dart';
 import 'my_bookings_screen.dart';
 import 'referee_screen.dart';
 
@@ -30,6 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return roles.contains('REFEREE') || roles.contains('ADMIN');
   }
 
+  /// Venue managers get the venue console.
+  bool get _isManager => (widget.session.user?.roles ?? const <String>[]).contains('VENUE_MANAGER');
+
   Future<void> _confirmSignOut() async {
     final yes = await showDialog<bool>(
       context: context,
@@ -53,12 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
       DiscoverScreen(api: api, onBookingsChanged: _bookingsChanged),
       MyBookingsScreen(key: ValueKey(_bookingsVersion), api: api, onBookingsChanged: _bookingsChanged),
       InvitesScreen(api: api, onBookingsChanged: _bookingsChanged),
+      if (_isManager) ManagerScreen(api: api),
       if (_isReferee && user != null) RefereeScreen(api: api, userId: user.id),
     ];
     final titles = <String>[
       context.t('title_find_court'),
       context.t('title_my_bookings'),
       context.t('title_invites'),
+      if (_isManager) context.t('title_manage'),
       if (_isReferee) context.t('title_referee'),
     ];
 
@@ -93,6 +99,12 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIcon: const Icon(Icons.group_add),
             label: context.t('tab_invites'),
           ),
+          if (_isManager)
+            NavigationDestination(
+              icon: const Icon(Icons.storefront_outlined),
+              selectedIcon: const Icon(Icons.storefront),
+              label: context.t('tab_manage'),
+            ),
           if (_isReferee)
             NavigationDestination(
               icon: const Icon(Icons.sports_soccer_outlined),

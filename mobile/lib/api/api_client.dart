@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'manager_models.dart';
 import 'models.dart';
 
 /// An error the app can show. [code] is the API's stable error code (SLOT_TAKEN,
@@ -229,6 +230,46 @@ class ApiClient {
   /// (`accepted`), already had (`duplicates`) or refused (`rejected`), and the server's clock.
   Future<Map<String, dynamic>> syncMatchEvents(String matchId, {required String deviceId, required List<Map<String, Object?>> events}) async =>
       asMap(await _send('POST', '/matches/$matchId/events/batch', body: {'device_id': deviceId, 'events': events}));
+
+  // ---- venue manager -------------------------------------------------------
+
+  Future<List<ManagerVenue>> managerVenues() async => asMapList(await _send('GET', '/manager/venues')).map(ManagerVenue.fromJson).toList();
+
+  Future<List<ManagerBooking>> managerBookings(String venueId) async =>
+      asMapList(await _send('GET', '/manager/venues/$venueId/bookings')).map(ManagerBooking.fromJson).toList();
+
+  Future<List<ManagerCourt>> managerCourts(String venueId) async =>
+      asMapList(await _send('GET', '/manager/venues/$venueId/courts')).map(ManagerCourt.fromJson).toList();
+
+  Future<void> createCourt(String venueId, Map<String, Object?> fields) async {
+    await _send('POST', '/manager/venues/$venueId/courts', body: fields);
+  }
+
+  /// Send only the fields that changed: touching hours or slot length is refused while bookings exist.
+  Future<void> updateCourt(String courtId, Map<String, Object?> fields) async {
+    await _send('PATCH', '/manager/courts/$courtId', body: fields);
+  }
+
+  Future<List<CourtBlock>> managerBlocks(String venueId) async =>
+      asMapList(await _send('GET', '/manager/venues/$venueId/blocks')).map(CourtBlock.fromJson).toList();
+
+  Future<void> createBlock(String courtId, {required DateTime startsAt, required DateTime endsAt, String? reason}) async {
+    await _send('POST', '/manager/courts/$courtId/blocks', body: {
+      'starts_at': startsAt.toUtc().toIso8601String(),
+      'ends_at': endsAt.toUtc().toIso8601String(),
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    });
+  }
+
+  Future<void> deleteBlock(String blockId) async {
+    await _send('DELETE', '/manager/blocks/$blockId');
+  }
+
+  Future<Earnings> managerEarnings(String venueId, {String? from, String? to}) async => Earnings.fromJson(asMap(await _send(
+        'GET',
+        '/manager/venues/$venueId/earnings',
+        query: {if (from != null) 'from': from, if (to != null) 'to': to},
+      )));
 
   // ---- transport -----------------------------------------------------------
 

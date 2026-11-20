@@ -89,6 +89,11 @@ All routes are under `/v1` and need `Authorization: Bearer <token>` unless marke
 | `POST /bookings/:id/ringer-requests` | organizer | Ask for N extra players |
 | `GET /ringer-invites/mine` | any user | Invitations received |
 | `POST /ringer-invites/:id/respond` | invited player | Accept or decline; first to accept get the places |
+| `GET /manager/venues` | venue manager | Venues the caller manages |
+| `GET /manager/venues/:id/bookings` | venue manager (own venue) | Bookings with who booked and how many have paid (default: today + 14 days) |
+| `GET/POST /manager/venues/:id/courts`, `PATCH /manager/courts/:id` | venue manager (own venue) | List, add and edit courts, prices, hours. Hours, slot length and switching off are refused while bookings exist |
+| `GET /manager/venues/:id/blocks`, `POST /manager/courts/:id/blocks`, `DELETE /manager/blocks/:id` | venue manager (own venue) | Close a court for a time. Cannot overlap a booking; the database enforces it |
+| `GET /manager/venues/:id/earnings` | venue manager (own venue) | Confirmed/completed bookings by day, AKAZ commission and net. Payouts are not tracked yet |
 | `POST /matches` | referee, venue manager, admin | Create a match |
 | `GET /matches/:id` | any user | Match, events, active sin bins |
 | `GET /matches/:id/sin-bins` | any user | Live White Card countdowns |

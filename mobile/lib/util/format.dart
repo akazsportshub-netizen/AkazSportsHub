@@ -107,3 +107,34 @@ String formatCountdown(Duration remaining) {
   final seconds = remaining.inSeconds % 60;
   return '$minutes:${_two(seconds)}';
 }
+
+/// 25000, 'QAR' → "250.00": an amount as typed into a price field (no currency name).
+String minorToPlain(int amountMinor, String currency) {
+  final decimals = _currencyDecimals[currency] ?? 2;
+  final digits = amountMinor.abs().toString().padLeft(decimals + 1, '0');
+  return '${digits.substring(0, digits.length - decimals)}.${digits.substring(digits.length - decimals)}';
+}
+
+/// "250" or "250.5" or "250.50" → 25000, 'QAR'. Null when it is not a positive amount the currency can hold.
+int? parseMinor(String text, String currency) {
+  final decimals = _currencyDecimals[currency] ?? 2;
+  final cleaned = text.trim().replaceAll(',', '.');
+  final match = RegExp(r'^(\d{1,9})(?:\.(\d+))?$').firstMatch(cleaned);
+  if (match == null) return null;
+  final fraction = match.group(2) ?? '';
+  if (fraction.length > decimals) return null;
+  final minor = int.parse(match.group(1)!) * _pow10(decimals) + (fraction.isEmpty ? 0 : int.parse(fraction.padRight(decimals, '0')));
+  return minor > 0 ? minor : null;
+}
+
+int _pow10(int exponent) {
+  var result = 1;
+  for (var i = 0; i < exponent; i++) {
+    result *= 10;
+  }
+  return result;
+}
+
+/// The reverse of [toVenueTime]: wall-clock time at the venue → the UTC instant.
+DateTime fromVenueTime(DateTime wallClock, String timezone) =>
+    DateTime.utc(wallClock.year, wallClock.month, wallClock.day, wallClock.hour, wallClock.minute).subtract(zoneOffset(timezone));
