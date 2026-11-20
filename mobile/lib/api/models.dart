@@ -400,3 +400,13 @@ class RingerInvite {
 
   bool get canRespond => status == 'SENT' && requestStatus == 'OPEN';
 }
+
+/// A player found by phone number, to share a booking with.
+class Friend {
+  Friend({required this.id, required this.fullName});
+
+  factory Friend.fromJson(Map<String, dynamic> json) => Friend(id: asString(json['id']), fullName: asString(json['full_name']));
+
+  final String id;
+  final String fullName;
+}

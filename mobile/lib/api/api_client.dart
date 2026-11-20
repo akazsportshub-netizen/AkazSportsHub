@@ -69,15 +69,30 @@ class ApiClient {
 
   // ---- bookings ------------------------------------------------------------
 
-  /// Holds the slot for 15 minutes. With no shares, the caller pays the whole booking.
-  Future<Booking> createBooking({required String courtId, required DateTime startsAt, required DateTime endsAt}) async {
-    final body = {
+  /// Holds the slot for 15 minutes. With no friends, the caller pays the whole booking;
+  /// with friends, the price is split equally and the caller is listed first.
+  Future<Booking> createBooking({
+    required String courtId,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    List<Friend> friends = const [],
+  }) async {
+    final body = <String, Object?>{
       'court_id': courtId,
       'starts_at': startsAt.toUtc().toIso8601String(),
       'ends_at': endsAt.toUtc().toIso8601String(),
+      if (friends.isNotEmpty)
+        'shares': [
+          {'user_id': userId},
+          for (final friend in friends) {'user_id': friend.id},
+        ],
     };
     return Booking.fromJson(asMap(await _send('POST', '/bookings', body: body)));
   }
+
+  /// Finds an AKAZ player by phone number (international format). Throws USER_NOT_FOUND if there is none.
+  Future<Friend> lookupUser(String phone) async =>
+      Friend.fromJson(asMap(await _send('GET', '/users/lookup', query: {'phone': phone})));
 
   Future<List<BookingSummary>> myBookings() async =>
       asMapList(await _send('GET', '/bookings/mine')).map(BookingSummary.fromJson).toList();

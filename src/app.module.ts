@@ -11,6 +11,7 @@ import { MatchesModule } from './matches/matches.module';
 import { PaymentsModule } from './payments/payments.module';
 import { QueuesModule } from './queues/queues.module';
 import { RingersModule } from './ringers/ringers.module';
+import { UsersModule } from './users/users.module';
 import { VenuesModule } from './venues/venues.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { WorkersModule } from './workers/workers.module';
@@ -26,6 +27,7 @@ import { WorkersModule } from './workers/workers.module';
     QueuesModule,
     AuthModule,
     VenuesModule,
+    UsersModule,
     PaymentsModule,
     BookingsModule,
     WebhooksModule,

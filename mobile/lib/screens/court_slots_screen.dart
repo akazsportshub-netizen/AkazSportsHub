@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'booking_screen.dart';
+import 'hold_dialog.dart';
 
 /// Pick a day and a free slot, then hold it.
 class CourtSlotsScreen extends StatefulWidget {
@@ -42,26 +43,19 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
 
   Future<void> _hold(Slot slot) async {
     final timezone = widget.venue.timezone;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hold this slot?'),
-        content: Text(
-          '${widget.court.name}\n${formatSlot(slot.startsAt, slot.endsAt, timezone)}\n\n'
-          '${formatMoney(slot.priceMinor, slot.currency)}\n\n'
-          'The slot is held for you for 15 minutes. Pay within that time to confirm it.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hold slot')),
-        ],
-      ),
+    final friends = await showHoldDialog(
+      context,
+      api: widget.api,
+      summary: '${widget.court.name}\n${formatSlot(slot.startsAt, slot.endsAt, timezone)}',
+      priceMinor: slot.priceMinor,
+      currency: slot.currency,
+      maxPlayers: widget.court.capacityPlayers,
     );
-    if (confirmed != true || !mounted) return;
+    if (friends == null || !mounted) return;
 
-    setState(() => _booking = true);
+    setState(() { _booking = true; });
     try {
-      final booking = await widget.api.createBooking(courtId: widget.court.id, startsAt: slot.startsAt, endsAt: slot.endsAt);
+      final booking = await widget.api.createBooking(courtId: widget.court.id, startsAt: slot.startsAt, endsAt: slot.endsAt, friends: friends);
       widget.onBookingsChanged();
       if (!mounted) return;
       await Navigator.push(
@@ -76,7 +70,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
       showMessage(context, error.code == 'SLOT_TAKEN' ? 'Someone has just taken that slot. Please pick another.' : error.message);
       _reload();
     } finally {
-      if (mounted) setState(() => _booking = false);
+      if (mounted) setState(() { _booking = false; });
     }
   }
 
