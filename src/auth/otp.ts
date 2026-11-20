@@ -48,6 +48,6 @@ export function codeMatches(code: string, phone: string, secret: string, storedH
 export function otpMessage(code: string, locale: 'en' | 'ar' = 'en'): string {
   const minutes = OTP_TTL_SECONDS / 60;
   return locale === 'ar'
-    ? `AKAZ: رمز الدخول الخاص بك هو ${code}. ينتهي خلال ${minutes} دقائق. لا تشاركه مع أحد.`
+    ? `AKAZ: رمز الدخول ${code} صالح ${minutes} دقائق. لا تشاركه مع أحد.`
     : `AKAZ: your sign-in code is ${code}. It expires in ${minutes} minutes. Do not share it with anyone.`;
 }
