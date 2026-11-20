@@ -63,7 +63,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await widget.session.signInWithCode(phone, _code.text.trim(), fullName: _needsName ? _name.text : null);
+      await widget.session.signInWithCode(phone, _code.text.trim(), fullName: _name.text);
       // The app swaps to the home screen by itself; close this page so it is not left on top.
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } on ApiException catch (error) {
@@ -110,11 +110,15 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 decoration: const InputDecoration(labelText: '6-digit code'),
                 onSubmitted: (_) => _busy ? null : _verify(),
               ),
-              if (_needsName) ...[
-                const SizedBox(height: 8),
-                const Text('This number is new to AKAZ. What should we call you?'),
-                TextField(controller: _name, decoration: const InputDecoration(labelText: 'Your name'), textCapitalization: TextCapitalization.words),
-              ],
+              const SizedBox(height: 8),
+              // Shown every time so a new number can create its account in one step; ignored for existing accounts.
+              Text(_needsName ? 'This number is new to AKAZ. What should we call you?' : 'New to AKAZ? Add your name to create your account.'),
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Your name (new numbers only)'),
+                textCapitalization: TextCapitalization.words,
+                onSubmitted: (_) => _busy ? null : _verify(),
+              ),
             ],
             if (_error != null)
               Padding(
@@ -126,7 +130,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
               onPressed: _busy ? null : (codeStep ? _verify : _sendCode),
               child: _busy
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(codeStep ? (_needsName ? 'Create account' : 'Sign in') : 'Send code'),
+                  : Text(codeStep ? 'Sign in' : 'Send code'),
             ),
             if (codeStep)
               TextButton(
