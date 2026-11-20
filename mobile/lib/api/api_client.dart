@@ -53,19 +53,25 @@ class ApiClient {
   // ---- sign-in with a phone number ----------------------------------------
 
   /// Sends a six-digit code by SMS. Throws RATE_LIMITED after too many requests.
-  Future<void> requestSignInCode(String phone) async {
-    await _send('POST', '/auth/otp/request', body: {'phone': phone});
+  Future<void> requestSignInCode(String phone, {String? locale}) async {
+    await _send('POST', '/auth/otp/request', body: {'phone': phone, if (locale != null) 'locale': locale});
   }
 
   /// Exchanges the code for a token. A first-time number needs [fullName]; without it the
   /// server answers NAME_REQUIRED and keeps the code usable.
-  Future<({String token, DevUser user})> verifySignInCode(String phone, String code, {String? fullName}) async {
+  Future<({String token, DevUser user})> verifySignInCode(String phone, String code, {String? fullName, String? locale}) async {
     final body = asMap(await _send('POST', '/auth/otp/verify', body: {
       'phone': phone,
       'code': code,
       if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
+      if (locale != null) 'locale': locale,
     }));
     return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
+  }
+
+  /// Sets the language for the messages we send this player (the app switches its own screens).
+  Future<void> setLanguage(String locale) async {
+    await _send('PATCH', '/users/me/language', body: {'locale': locale});
   }
 
   // ---- discovery -----------------------------------------------------------

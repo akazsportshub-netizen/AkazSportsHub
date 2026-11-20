@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 
@@ -85,10 +86,10 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
           await widget.api.simulateMockPayment(payment.attemptId, succeed: succeed);
           await _waitForChange(share.id);
           widget.onBookingsChanged();
-          if (mounted) showMessage(context, succeed ? 'Payment received.' : 'The payment failed. You can try again.');
+          if (mounted) showMessage(context, context.t(succeed ? 'payment_succeeded' : 'payment_failed'));
         } else {
           final opened = await launchUrl(Uri.parse(payment.checkoutUrl), mode: LaunchMode.externalApplication);
-          if (!opened && mounted) showMessage(context, 'Could not open the payment page.');
+          if (!opened && mounted) showMessage(context, context.t('open_payment_failed'));
         }
       });
 
@@ -111,21 +112,20 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Test payment', style: Theme.of(context).textTheme.titleLarge),
+                Text(context.t('test_payment'), style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                Text('${formatMoney(payment.amountMinor, payment.currency)}\n\n'
-                    'The backend is using mock payments, so no real money moves. Choose what the payment provider should answer.'),
+                Text('${formatMoney(payment.amountMinor, payment.currency)}\n\n${context.t('mock_explain')}'),
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: () => Navigator.pop(context, true),
                   icon: const Icon(Icons.check),
-                  label: const Text('Payment succeeds'),
+                  label: Text(context.t('pay_succeeds')),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context, false),
                   icon: const Icon(Icons.close),
-                  label: const Text('Payment fails'),
+                  label: Text(context.t('pay_fails')),
                 ),
               ],
             ),
@@ -138,13 +138,13 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel this booking?'),
+        title: Text(context.t('cancel_title')),
         content: Text(booking.isConfirmed
-            ? 'Everyone who paid gets their money back. Free cancellation ends ${booking.freeCancellationHours} hours before the start.'
-            : 'The slot is released and nobody is charged.'),
+            ? context.t('cancel_confirmed_body', {'hours': booking.freeCancellationHours})
+            : context.t('cancel_hold_body')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep it')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cancel booking')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.t('keep_it'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.t('cancel_booking'))),
         ],
       ),
     );
@@ -153,7 +153,7 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
       await widget.api.cancelBooking(widget.bookingId);
       await _reload();
       widget.onBookingsChanged();
-      if (mounted) showMessage(context, 'Booking cancelled.');
+      if (mounted) showMessage(context, context.t('booking_cancelled'));
     });
   }
 
@@ -163,11 +163,11 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Players short?'),
+          title: Text(context.t('short_title')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('We will invite nearby players with a good reliability score, closest first.'),
+              Text(context.t('short_body')),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -177,12 +177,12 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
                   IconButton(onPressed: count < 10 ? () => setDialogState(() => count++) : null, icon: const Icon(Icons.add)),
                 ],
               ),
-              Text(count == 1 ? 'player needed' : 'players needed'),
+              Text(context.t(count == 1 ? 'player_needed' : 'players_needed')),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, count), child: const Text('Find players')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(context.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, count), child: Text(context.t('find_players'))),
           ],
         ),
       ),
@@ -190,7 +190,7 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
     if (chosen == null) return;
     await _run(() async {
       await widget.api.requestRingers(widget.bookingId, chosen);
-      if (mounted) showMessage(context, 'Looking for $chosen ${chosen == 1 ? 'player' : 'players'}. Invitations go out in waves.');
+      if (mounted) showMessage(context, chosen == 1 ? context.t('looking_one') : context.t('looking_many', {'n': chosen}));
     });
   }
 
@@ -198,7 +198,7 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     final booking = _booking;
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking')),
+      appBar: AppBar(title: Text(context.t('booking'))),
       body: booking == null
           ? (_error == null
               ? const Center(child: CircularProgressIndicator())
@@ -229,7 +229,7 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
           ],
         ),
         const SizedBox(height: 4),
-        Text('${booking.courtName} · ${titleCase(booking.sport)}'),
+        Text('${booking.courtName} · ${context.sportName(booking.sport)}'),
         const SizedBox(height: 4),
         Text(formatSlot(booking.startsAt, booking.endsAt, booking.timezone), style: theme.textTheme.titleMedium),
         const SizedBox(height: 16),
@@ -239,32 +239,30 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
             color: holdLeft.isNegative ? theme.colorScheme.errorContainer : theme.colorScheme.tertiaryContainer,
             child: ListTile(
               leading: const Icon(Icons.timer_outlined),
-              title: Text(holdLeft.isNegative ? 'The hold has run out' : 'Held for ${formatCountdown(holdLeft)}'),
-              subtitle: Text(holdLeft.isNegative
-                  ? 'The slot is being released. Pull down to refresh.'
-                  : 'Pay before the timer ends or the slot is released.'),
+              title: Text(holdLeft.isNegative ? context.t('hold_ran_out') : context.t('held_for', {'time': formatCountdown(holdLeft)})),
+              subtitle: Text(context.t(holdLeft.isNegative ? 'hold_released' : 'pay_before')),
             ),
           ),
         if (booking.isConfirmed)
           Card(
             color: theme.colorScheme.primaryContainer,
-            child: const ListTile(
-              leading: Icon(Icons.check_circle_outline),
-              title: Text('Confirmed'),
-              subtitle: Text('Everyone has paid. See you on the pitch.'),
+            child: ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: Text(context.statusLabel('CONFIRMED')),
+              subtitle: Text(context.t('everyone_paid')),
             ),
           ),
         if (booking.requiresTurfFootwear)
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.warning_amber_rounded),
-              title: Text('Turf shoes only'),
-              subtitle: Text('TF turf shoes — no metal or FG studs.'),
+              leading: const Icon(Icons.warning_amber_rounded),
+              title: Text(context.t('turf_only')),
+              subtitle: Text(context.t('turf_default')),
             ),
           ),
 
         const SizedBox(height: 12),
-        Text('Payment', style: theme.textTheme.titleMedium),
+        Text(context.t('payment'), style: theme.textTheme.titleMedium),
         const SizedBox(height: 4),
         for (final share in booking.shares)
           Card(
@@ -273,12 +271,13 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
               subtitle: Text(
                 [
                   formatMoney(share.amountMinor, share.currency),
-                  if (share.isRinger) 'extra player',
-                  if (share.isRinger && share.status == 'PENDING' && share.payBy != null) 'pay by ${formatClock(share.payBy!, booking.timezone)}',
+                  if (share.isRinger) context.t('extra_player'),
+                  if (share.isRinger && share.status == 'PENDING' && share.payBy != null)
+                    context.t('pay_by', {'time': formatClock(share.payBy!, booking.timezone)}),
                 ].join(' · '),
               ),
               trailing: (booking.isHold || (booking.isConfirmed && share.isRinger)) && share.status == 'PENDING' && share.userId == me
-                  ? FilledButton(onPressed: canAct ? () => _pay(share) : null, child: const Text('Pay'))
+                  ? FilledButton(onPressed: canAct ? () => _pay(share) : null, child: Text(context.t('pay')))
                   : StatusChip(share.status),
             ),
           ),
@@ -286,15 +285,15 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
-              const Expanded(child: Text('Total')),
+              Expanded(child: Text(context.t('total'))),
               Text(formatMoney(booking.totalMinor, booking.currency), style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
         ),
         if (booking.isHold && pending.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('All shares are paid. Confirming the booking…'),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(context.t('all_paid_confirming')),
           ),
 
         const SizedBox(height: 16),
@@ -302,13 +301,13 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
           OutlinedButton.icon(
             onPressed: canAct ? _askForPlayers : null,
             icon: const Icon(Icons.group_add_outlined),
-            label: const Text('We are players short'),
+            label: Text(context.t('short_button')),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: canAct ? _cancel : null,
             icon: const Icon(Icons.cancel_outlined),
-            label: const Text('Cancel booking'),
+            label: Text(context.t('cancel_booking')),
             style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
           ),
         ],

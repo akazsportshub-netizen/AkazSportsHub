@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../session.dart';
 import 'discover_screen.dart';
 import 'invites_screen.dart';
@@ -33,11 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: Text('You are signed in as ${widget.session.user?.fullName ?? 'a demo user'}.'),
+        title: Text(context.t('signout_title')),
+        content: Text(context.t('signout_body', {'name': widget.session.user?.fullName ?? context.t('demo_user')})),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Stay')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sign out')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.t('stay'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.t('sign_out'))),
         ],
       ),
     );
@@ -54,14 +55,23 @@ class _HomeScreenState extends State<HomeScreen> {
       InvitesScreen(api: api, onBookingsChanged: _bookingsChanged),
       if (_isReferee && user != null) RefereeScreen(api: api, userId: user.id),
     ];
-    final titles = <String>['Find a court', 'My bookings', 'Ringer invites', if (_isReferee) 'Referee console'];
+    final titles = <String>[
+      context.t('title_find_court'),
+      context.t('title_my_bookings'),
+      context.t('title_invites'),
+      if (_isReferee) context.t('title_referee'),
+    ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_tab]),
         actions: [
+          TextButton(
+            onPressed: () => widget.session.setLanguage(widget.session.language == 'ar' ? 'en' : 'ar'),
+            child: Text(context.t('switch_language')),
+          ),
           IconButton(
-            tooltip: 'Signed in as ${widget.session.user?.fullName ?? ''}',
+            tooltip: context.t('signed_in_as', {'name': widget.session.user?.fullName ?? ''}),
             icon: const Icon(Icons.account_circle_outlined),
             onPressed: _confirmSignOut,
           ),
@@ -72,11 +82,23 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.search), label: 'Discover'),
-          const NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note), label: 'Bookings'),
-          const NavigationDestination(icon: Icon(Icons.group_add_outlined), selectedIcon: Icon(Icons.group_add), label: 'Invites'),
+          NavigationDestination(icon: const Icon(Icons.search), label: context.t('tab_discover')),
+          NavigationDestination(
+            icon: const Icon(Icons.event_note_outlined),
+            selectedIcon: const Icon(Icons.event_note),
+            label: context.t('tab_bookings'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.group_add_outlined),
+            selectedIcon: const Icon(Icons.group_add),
+            label: context.t('tab_invites'),
+          ),
           if (_isReferee)
-            const NavigationDestination(icon: Icon(Icons.sports_soccer_outlined), selectedIcon: Icon(Icons.sports_soccer), label: 'Referee'),
+            NavigationDestination(
+              icon: const Icon(Icons.sports_soccer_outlined),
+              selectedIcon: const Icon(Icons.sports_soccer),
+              label: context.t('tab_referee'),
+            ),
         ],
       ),
     );

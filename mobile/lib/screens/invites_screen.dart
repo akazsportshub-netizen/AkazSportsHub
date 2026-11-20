@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'booking_screen.dart';
@@ -43,7 +44,7 @@ class _InvitesScreenState extends State<InvitesScreen> {
         widget.onBookingsChanged();
         showMessage(
           context,
-          'You have a place! Pay your share of ${formatMoney(answer.amountMinor ?? 0, answer.currency ?? '')} within 15 minutes to keep it.',
+          context.t('invite_accepted_pay', {'amount': formatMoney(answer.amountMinor ?? 0, answer.currency ?? '')}),
         );
         await Navigator.push(
           context,
@@ -52,11 +53,11 @@ class _InvitesScreenState extends State<InvitesScreen> {
           ),
         );
       } else {
-        showMessage(context, answer.accepted ? 'You are in! See you there.' : 'Invitation declined.');
+        showMessage(context, context.t(answer.accepted ? 'invite_in' : 'invite_declined'));
       }
     } on ApiException catch (error) {
       if (mounted) {
-        showMessage(context, error.code == 'REQUEST_CLOSED' ? 'Too late — all places have been taken.' : error.message);
+        showMessage(context, error.code == 'REQUEST_CLOSED' ? context.t('too_late') : error.message);
       }
     } finally {
       if (mounted) {
@@ -80,12 +81,9 @@ class _InvitesScreenState extends State<InvitesScreen> {
           onRefresh: _reload,
           child: invites.isEmpty
               ? ListView(
-                  children: const [
-                    SizedBox(height: 120),
-                    EmptyState(
-                      icon: Icons.group_add_outlined,
-                      message: 'No invitations right now.\nWhen a nearby game is a player short, it shows up here.',
-                    ),
+                  children: [
+                    const SizedBox(height: 120),
+                    EmptyState(icon: Icons.group_add_outlined, message: context.t('no_invites')),
                   ],
                 )
               : ListView.builder(
@@ -110,23 +108,33 @@ class _InvitesScreenState extends State<InvitesScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: Text('${titleCase(invite.sport)} at ${invite.venueName}', style: theme.textTheme.titleMedium)),
+                Expanded(
+                  child: Text(
+                    context.t('invite_title', {'sport': context.sportName(invite.sport), 'venue': invite.venueName}),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
                 StatusChip(invite.status),
               ],
             ),
             const SizedBox(height: 4),
-            Text('${invite.courtName} · ${invite.city}${invite.distanceM == null ? '' : ' · ${formatDistance(invite.distanceM!)} away'}'),
+            Text(
+              '${invite.courtName} · ${invite.city}'
+              '${invite.distanceM == null ? '' : ' · ${context.t('away', {'distance': formatDistance(invite.distanceM!)})}'}',
+            ),
             Text(formatSlot(invite.startsAt, invite.endsAt, invite.timezone)),
             const SizedBox(height: 4),
-            Text(placesLeft > 0 ? '$placesLeft of ${invite.slotsNeeded} places left' : 'All places taken',
-                style: theme.textTheme.bodySmall),
-            if (invite.requiresTurfFootwear) Text('Turf shoes only', style: theme.textTheme.bodySmall),
+            Text(
+              placesLeft > 0 ? context.t('places_left', {'left': placesLeft, 'total': invite.slotsNeeded}) : context.t('all_taken'),
+              style: theme.textTheme.bodySmall,
+            ),
+            if (invite.requiresTurfFootwear) Text(context.t('turf_only'), style: theme.textTheme.bodySmall),
             if (invite.canRespond) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(onPressed: busy ? null : () => _respond(invite, false), child: const Text('Decline')),
+                    child: OutlinedButton(onPressed: busy ? null : () => _respond(invite, false), child: Text(context.t('decline'))),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -134,7 +142,7 @@ class _InvitesScreenState extends State<InvitesScreen> {
                       onPressed: busy ? null : () => _respond(invite, true),
                       child: busy
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text("I'm in"),
+                          : Text(context.t('im_in')),
                     ),
                   ),
                 ],

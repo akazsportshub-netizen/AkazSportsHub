@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../session.dart';
 import '../widgets.dart';
 import 'phone_sign_in_screen.dart';
@@ -52,6 +53,14 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          TextButton(
+            onPressed: () => widget.session.setLanguage(widget.session.language == 'ar' ? 'en' : 'ar'),
+            child: Text(context.t('switch_language')),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: FutureBuilder<List<DevUser>>(
           future: _users,
@@ -78,21 +87,21 @@ class _SignInScreenState extends State<SignInScreen> {
                 FilledButton.icon(
                   onPressed: _openPhoneSignIn,
                   icon: const Icon(Icons.sms),
-                  label: const Text('Sign in with your phone'),
+                  label: Text(context.t('sign_in_phone_button')),
                 ),
                 const SizedBox(height: 16),
-                Text('Development sign-in — choose who to play as.', style: theme.textTheme.bodyLarge),
+                Text(context.t('dev_signin_hint'), style: theme.textTheme.bodyLarge),
                 const SizedBox(height: 4),
                 Text(widget.session.api.baseUrl, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
                 const SizedBox(height: 20),
                 if (players.isNotEmpty) ...[
-                  Text('Players', style: theme.textTheme.titleMedium),
+                  Text(context.t('players'), style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   ...players.map(_tile),
                   const SizedBox(height: 20),
                 ],
                 if (others.isNotEmpty) ...[
-                  Text('Other roles', style: theme.textTheme.titleMedium),
+                  Text(context.t('other_roles'), style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   ...others.map(_tile),
                 ],
@@ -117,7 +126,7 @@ class _SignInScreenState extends State<SignInScreen> {
         children: [
           Text('AKAZ Sports Hub', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          FilledButton.icon(onPressed: _openPhoneSignIn, icon: const Icon(Icons.sms), label: const Text('Sign in with your phone')),
+          FilledButton.icon(onPressed: _openPhoneSignIn, icon: const Icon(Icons.sms), label: Text(context.t('sign_in_phone_button'))),
         ],
       ),
     );

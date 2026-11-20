@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_strings.dart';
 import '../session.dart';
 import '../widgets.dart';
 
@@ -41,12 +42,12 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   Future<void> _sendCode() async {
     final phone = normalizeSignInPhone(_phone.text);
     if (phone == null) {
-      setState(() { _error = 'Enter your number with the country code, e.g. +97455500010.'; });
+      setState(() { _error = context.t('err_phone'); });
       return;
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await widget.session.api.requestSignInCode(phone);
+      await widget.session.api.requestSignInCode(phone, locale: widget.session.language);
       if (mounted) setState(() { _sentTo = phone; _code.clear(); _needsName = false; });
     } on ApiException catch (error) {
       if (mounted) setState(() { _error = error.message; });
@@ -58,7 +59,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   Future<void> _verify() async {
     final phone = _sentTo!;
     if (!RegExp(r'^[0-9]{6}$').hasMatch(_code.text.trim())) {
-      setState(() { _error = 'Enter the 6 digits from the message.'; });
+      setState(() { _error = context.t('err_code'); });
       return;
     }
     setState(() { _busy = true; _error = null; });
@@ -83,13 +84,13 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     final theme = Theme.of(context);
     final codeStep = _sentTo != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(title: Text(context.t('sign_in'))),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Text(
-              codeStep ? 'Enter the code we sent to $_sentTo.' : 'Enter your phone number and we will text you a code.',
+              codeStep ? context.t('psi_enter_code', {'phone': _sentTo!}) : context.t('psi_enter_phone'),
               style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
@@ -98,7 +99,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 controller: _phone,
                 keyboardType: TextInputType.phone,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Phone number', hintText: '+97455500010'),
+                decoration: InputDecoration(labelText: context.t('phone_number'), hintText: '+97455500010'),
                 onSubmitted: (_) => _busy ? null : _sendCode(),
               )
             else ...[
@@ -107,15 +108,15 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 keyboardType: TextInputType.number,
                 autofocus: true,
                 maxLength: 6,
-                decoration: const InputDecoration(labelText: '6-digit code'),
+                decoration: InputDecoration(labelText: context.t('code_label')),
                 onSubmitted: (_) => _busy ? null : _verify(),
               ),
               const SizedBox(height: 8),
               // Shown every time so a new number can create its account in one step; ignored for existing accounts.
-              Text(_needsName ? 'This number is new to AKAZ. What should we call you?' : 'New to AKAZ? Add your name to create your account.'),
+              Text(context.t(_needsName ? 'name_required_hint' : 'name_new_hint')),
               TextField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Your name (new numbers only)'),
+                decoration: InputDecoration(labelText: context.t('your_name')),
                 textCapitalization: TextCapitalization.words,
                 onSubmitted: (_) => _busy ? null : _verify(),
               ),
@@ -130,12 +131,12 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
               onPressed: _busy ? null : (codeStep ? _verify : _sendCode),
               child: _busy
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(codeStep ? 'Sign in' : 'Send code'),
+                  : Text(codeStep ? context.t('sign_in') : context.t('send_code')),
             ),
             if (codeStep)
               TextButton(
                 onPressed: _busy ? null : () => setState(() { _sentTo = null; _error = null; _needsName = false; }),
-                child: const Text('Use a different number'),
+                child: Text(context.t('use_other_number')),
               ),
           ],
         ),

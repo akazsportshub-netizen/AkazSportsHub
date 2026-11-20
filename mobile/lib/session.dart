@@ -1,10 +1,14 @@
 import 'dart:convert';
 
+import 'dart:async';
+import 'dart:ui' show Locale, PlatformDispatcher;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api_client.dart';
 import 'api/models.dart';
+import 'util/format.dart';
 
 /// Where the API is. Override at build time:
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:3000
@@ -23,6 +27,23 @@ class Session extends ChangeNotifier {
 
   static const _tokenKey = 'akaz.access_token';
   static const _userKey = 'akaz.user';
+  static const _languageKey = 'akaz.language';
+
+  String _language = PlatformDispatcher.instance.locale.languageCode == 'ar' ? 'ar' : 'en';
+
+  /// 'en' or 'ar': what the screens and the messages we send are written in.
+  String get language => _language;
+  Locale get locale => Locale(_language);
+
+  /// Switches the language now, remembers it, and tells the server so our messages follow.
+  Future<void> setLanguage(String code) async {
+    _language = code == 'ar' ? 'ar' : 'en';
+    formatLanguageCode = _language;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, _language);
+    if (isSignedIn) unawaited(api.setLanguage(_language).catchError((Object _) {}));
+  }
 
   DevUser? _user;
   bool _restored = false;
@@ -33,6 +54,9 @@ class Session extends ChangeNotifier {
 
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedLanguage = prefs.getString(_languageKey);
+    if (savedLanguage != null) _language = savedLanguage == 'ar' ? 'ar' : 'en';
+    formatLanguageCode = _language;
     final token = prefs.getString(_tokenKey);
     final userJson = prefs.getString(_userKey);
     if (token != null && userJson != null) {
@@ -52,7 +76,7 @@ class Session extends ChangeNotifier {
   Future<void> signInAs(String userId) async => _start(await api.devSignIn(userId));
 
   Future<void> signInWithCode(String phone, String code, {String? fullName}) async =>
-      _start(await api.verifySignInCode(phone, code, fullName: fullName));
+      _start(await api.verifySignInCode(phone, code, fullName: fullName, locale: _language));
 
   Future<void> _start(({String token, DevUser user}) result) async {
     api.accessToken = result.token;
@@ -61,6 +85,8 @@ class Session extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, result.token);
     await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
+    // The language chosen in the app decides the language of our messages.
+    unawaited(api.setLanguage(_language).catchError((Object _) {}));
     notifyListeners();
   }
 

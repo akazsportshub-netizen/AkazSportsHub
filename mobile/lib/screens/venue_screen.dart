@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'court_slots_screen.dart';
@@ -74,34 +75,34 @@ class _VenueBody extends StatelessWidget {
             color: theme.colorScheme.tertiaryContainer,
             child: ListTile(
               leading: const Icon(Icons.warning_amber_rounded),
-              title: const Text('Turf shoes only'),
-              subtitle: Text(asString(venue.rules['footwear'], 'TF turf shoes required — no metal or FG studs.')),
+              title: Text(context.t('turf_only')),
+              subtitle: Text(asString(venue.rules['footwear'], context.t('turf_default'))),
             ),
           ),
         ],
         if (rules.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text('Venue rules', style: theme.textTheme.titleMedium),
+          Text(context.t('venue_rules'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           for (final rule in rules)
             if (rule.key != 'footwear')
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text('• ${_ruleText(rule.key, rule.value)}'),
+                child: Text('• ${_ruleText(context, rule.key, rule.value)}'),
               ),
         ],
         const SizedBox(height: 20),
-        Text('Courts', style: theme.textTheme.titleMedium),
+        Text(context.t('courts'), style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        if (venue.courts.isEmpty) const Text('No courts are open for booking at this venue yet.'),
+        if (venue.courts.isEmpty) Text(context.t('no_courts')),
         for (final court in venue.courts)
           Card(
             child: ListTile(
               title: Text(court.name),
               subtitle: Text([
-                titleCase(court.sport),
+                context.sportName(court.sport),
                 if (court.surface != null) court.surface!,
-                'up to ${court.capacityPlayers} players',
+                context.t('up_to_players', {'n': court.capacityPlayers}),
                 '${court.opensAt}–${court.closesAt}',
               ].join(' · ')),
               trailing: Column(
@@ -109,7 +110,7 @@ class _VenueBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(formatMoney(court.pricePerHourMinor, venue.currency), style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const Text('per hour', style: TextStyle(fontSize: 12)),
+                  Text(context.t('per_hour'), style: const TextStyle(fontSize: 12)),
                 ],
               ),
               onTap: () => Navigator.push(
@@ -124,8 +125,8 @@ class _VenueBody extends StatelessWidget {
     );
   }
 
-  static String _ruleText(String key, Object? value) {
-    if (key == 'arrive_minutes_early') return 'Arrive $value minutes before your slot';
+  static String _ruleText(BuildContext context, String key, Object? value) {
+    if (key == 'arrive_minutes_early') return context.t('rule_arrive', {'n': value ?? ''});
     final label = key.replaceAll('_', ' ');
     return '${label[0].toUpperCase()}${label.substring(1)}: $value';
   }

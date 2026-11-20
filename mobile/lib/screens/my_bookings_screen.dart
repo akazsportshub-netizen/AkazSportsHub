@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'booking_screen.dart';
@@ -45,9 +46,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
-              children: const [
-                SizedBox(height: 120),
-                EmptyState(icon: Icons.event_note_outlined, message: 'No bookings yet.\nFind a court on the Discover tab.'),
+              children: [
+                const SizedBox(height: 120),
+                EmptyState(icon: Icons.event_note_outlined, message: context.t('no_bookings')),
               ],
             ),
           );
@@ -63,9 +64,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              if (upcoming.isNotEmpty) _header(context, 'Upcoming'),
+              if (upcoming.isNotEmpty) _header(context, context.t('upcoming')),
               ...upcoming.map(_tile),
-              if (past.isNotEmpty) _header(context, 'Past and cancelled'),
+              if (past.isNotEmpty) _header(context, context.t('past_cancelled')),
               ...past.map(_tile),
             ],
           ),
@@ -84,7 +85,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Widget _tile(BookingSummary booking) {
     final yourPart = booking.myShareMinor == null
         ? null
-        : 'Your share ${formatMoney(booking.myShareMinor!, booking.currency)}${booking.myShareStatus == 'PAID' ? ' · paid' : ''}';
+        : context.t('your_share', {'amount': formatMoney(booking.myShareMinor!, booking.currency)}) +
+            (booking.myShareStatus == 'PAID' ? ' · ${context.t('paid_suffix')}' : '');
     return Card(
       child: ListTile(
         title: Text(booking.venueName),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'booking_screen.dart';
@@ -67,7 +68,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
       if (mounted) _reload();
     } on ApiException catch (error) {
       if (!mounted) return;
-      showMessage(context, error.code == 'SLOT_TAKEN' ? 'Someone has just taken that slot. Please pick another.' : error.message);
+      showMessage(context, error.code == 'SLOT_TAKEN' ? context.t('slot_taken') : error.message);
       _reload();
     } finally {
       if (mounted) setState(() { _booking = false; });
@@ -102,7 +103,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
                     label: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(index == 0 ? 'Today' : parts[0], style: const TextStyle(fontSize: 12)),
+                        Text(index == 0 ? context.t('today') : parts[0], style: const TextStyle(fontSize: 12)),
                         Text('${parts[1]} ${parts[2]}', style: const TextStyle(fontWeight: FontWeight.w600)),
                       ],
                     ),
@@ -123,7 +124,7 @@ class _CourtSlotsScreenState extends State<CourtSlotsScreen> {
                 final now = DateTime.now().toUtc();
                 final slots = snapshot.data!.slots.where((slot) => slot.startsAt.isAfter(now)).toList();
                 if (slots.isEmpty) {
-                  return const EmptyState(icon: Icons.event_busy, message: 'No more slots on this day. Try another date.');
+                  return EmptyState(icon: Icons.event_busy, message: context.t('no_slots'));
                 }
                 return AbsorbPointer(
                   absorbing: _booking,
@@ -181,7 +182,7 @@ class _SlotTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                available ? formatMoney(slot.priceMinor, slot.currency) : 'Booked',
+                available ? formatMoney(slot.priceMinor, slot.currency) : context.t('booked'),
                 style: TextStyle(fontSize: 12, color: available ? scheme.onPrimaryContainer : scheme.outline),
               ),
             ],

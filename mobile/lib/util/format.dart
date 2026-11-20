@@ -40,10 +40,22 @@ Duration zoneOffset(String timezone) => Duration(minutes: _zoneOffsetMinutes[tim
 /// whose fields read as local time; use it only for display.
 DateTime toVenueTime(DateTime instant, String timezone) => instant.toUtc().add(zoneOffset(timezone));
 
+/// 'en' or 'ar'. Set by the app whenever the language changes, so dates and distances read in it.
+String formatLanguageCode = 'en';
+
+bool get _arabic => formatLanguageCode == 'ar';
+
 String _two(int value) => value.toString().padLeft(2, '0');
 
 const List<String> _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const List<String> _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const List<String> _weekdaysAr = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+const List<String> _monthsAr = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر', //
+];
+
+String _weekdayName(int weekday) => (_arabic ? _weekdaysAr : _weekdays)[weekday - 1];
+String _monthName(int month) => (_arabic ? _monthsAr : _months)[month - 1];
 
 /// "18:00"
 String formatClock(DateTime instant, String timezone) {
@@ -54,13 +66,13 @@ String formatClock(DateTime instant, String timezone) {
 /// "Fri 20 Nov"
 String formatDay(DateTime instant, String timezone) {
   final local = toVenueTime(instant, timezone);
-  return '${_weekdays[local.weekday - 1]} ${local.day} ${_months[local.month - 1]}';
+  return '${_weekdayName(local.weekday)} ${local.day} ${_monthName(local.month)}';
 }
 
 /// A calendar date (year, month and day only) as "Fri 20 Nov".
 String formatCalendarDay(DateTime day) {
   final date = DateTime.utc(day.year, day.month, day.day);
-  return '${_weekdays[date.weekday - 1]} ${date.day} ${_months[date.month - 1]}';
+  return '${_weekdayName(date.weekday)} ${date.day} ${_monthName(date.month)}';
 }
 
 /// "Fri 20 Nov, 18:00–19:00"
@@ -78,8 +90,8 @@ DateTime venueToday(String timezone, {DateTime? now}) {
 
 /// "1.2 km" / "800 m"
 String formatDistance(int metres) {
-  if (metres < 1000) return '$metres m';
-  return '${(metres / 1000).toStringAsFixed(1)} km';
+  if (metres < 1000) return _arabic ? '$metres م' : '$metres m';
+  return _arabic ? '${(metres / 1000).toStringAsFixed(1)} كم' : '${(metres / 1000).toStringAsFixed(1)} km';
 }
 
 /// "FOOTBALL" → "Football"

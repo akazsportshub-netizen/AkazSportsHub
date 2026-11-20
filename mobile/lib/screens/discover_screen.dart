@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
 import 'venue_screen.dart';
@@ -9,20 +10,21 @@ import 'venue_screen.dart';
 /// A place to search around. Using the phone's GPS comes later; for now the player
 /// picks a city, which keeps the app free of location permissions while testing.
 class _City {
-  const _City(this.name, this.lat, this.lng);
+  const _City(this.key, this.lat, this.lng);
 
-  final String name;
+  /// Translation key of the city's name.
+  final String key;
   final double lat;
   final double lng;
 }
 
 const List<_City> _cities = [
-  _City('Doha', 25.2860, 51.5000),
-  _City('Lusail', 25.4200, 51.4900),
-  _City('Riyadh', 24.6900, 46.6850),
-  _City('Dubai', 25.1400, 55.2300),
-  _City('Manama', 26.2100, 50.6000),
-  _City('Muscat', 23.5950, 58.4300),
+  _City('city_doha', 25.2860, 51.5000),
+  _City('city_lusail', 25.4200, 51.4900),
+  _City('city_riyadh', 24.6900, 46.6850),
+  _City('city_dubai', 25.1400, 55.2300),
+  _City('city_manama', 26.2100, 50.6000),
+  _City('city_muscat', 23.5950, 58.4300),
 ];
 
 const List<String> _sports = ['FOOTBALL', 'PADEL', 'BADMINTON', 'BASKETBALL', 'VOLLEYBALL', 'TENNIS', 'CRICKET'];
@@ -66,7 +68,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
-                    label: Text(city.name),
+                    label: Text(context.t(city.key)),
                     selected: city == _city,
                     onSelected: (_) {
                       _city = city;
@@ -86,7 +88,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: const Text('All sports'),
+                  label: Text(context.t('all_sports')),
                   selected: _sport == null,
                   onSelected: (_) {
                     _sport = null;
@@ -98,7 +100,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(titleCase(sport)),
+                    label: Text(context.sportName(sport)),
                     selected: _sport == sport,
                     onSelected: (_) {
                       _sport = _sport == sport ? null : sport;
@@ -122,8 +124,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 return EmptyState(
                   icon: Icons.sports_soccer_outlined,
                   message: _sport == null
-                      ? 'No venues within 30 km of ${_city.name} yet.'
-                      : 'No ${titleCase(_sport!)} venues within 30 km of ${_city.name} yet.',
+                      ? context.t('no_venues', {'city': context.t(_city.key)})
+                      : context.t('no_venues_sport', {'sport': context.sportName(_sport!), 'city': context.t(_city.key)}),
                 );
               }
               return RefreshIndicator(
@@ -190,12 +192,12 @@ class _VenueCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final sport in venue.sports) Chip(label: Text(titleCase(sport)), visualDensity: VisualDensity.compact),
+                  for (final sport in venue.sports) Chip(label: Text(context.sportName(sport)), visualDensity: VisualDensity.compact),
                 ],
               ),
               if (price != null) ...[
                 const SizedBox(height: 8),
-                Text('From ${formatMoney(price, venue.currency)} / hour',
+                Text(context.t('from_price', {'price': formatMoney(price, venue.currency)}),
                     style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary)),
               ],
             ],
