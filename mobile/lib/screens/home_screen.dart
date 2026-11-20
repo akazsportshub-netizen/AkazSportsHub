@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pages = <Widget>[
       DiscoverScreen(api: api, onBookingsChanged: _bookingsChanged),
       MyBookingsScreen(key: ValueKey(_bookingsVersion), api: api, onBookingsChanged: _bookingsChanged),
-      InvitesScreen(api: api),
+      InvitesScreen(api: api, onBookingsChanged: _bookingsChanged),
       if (_isReferee && user != null) RefereeScreen(api: api, userId: user.id),
     ];
     final titles = <String>['Find a court', 'My bookings', 'Ringer invites', if (_isReferee) 'Referee console'];

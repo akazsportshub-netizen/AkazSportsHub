@@ -211,7 +211,8 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
   Widget _body(BuildContext context, Booking booking) {
     final theme = Theme.of(context);
     final holdLeft = booking.holdExpiresAt?.difference(DateTime.now().toUtc());
-    final pending = booking.shares.where((share) => share.status == 'PENDING').toList();
+    // Extra players never hold up a booking, so only the original players count here.
+    final pending = booking.shares.where((share) => share.status == 'PENDING' && !share.isRinger).toList();
     final upcoming = booking.startsAt.isAfter(DateTime.now().toUtc());
     final canAct = !_busy;
     final me = widget.api.userId;
@@ -269,8 +270,14 @@ class _BookingScreenState extends State<BookingScreen> with WidgetsBindingObserv
           Card(
             child: ListTile(
               title: Text(share.fullName),
-              subtitle: Text(formatMoney(share.amountMinor, share.currency)),
-              trailing: booking.isHold && share.status == 'PENDING' && share.userId == me
+              subtitle: Text(
+                [
+                  formatMoney(share.amountMinor, share.currency),
+                  if (share.isRinger) 'extra player',
+                  if (share.isRinger && share.status == 'PENDING' && share.payBy != null) 'pay by ${formatClock(share.payBy!, booking.timezone)}',
+                ].join(' · '),
+              ),
+              trailing: (booking.isHold || (booking.isConfirmed && share.isRinger)) && share.status == 'PENDING' && share.userId == me
                   ? FilledButton(onPressed: canAct ? () => _pay(share) : null, child: const Text('Pay'))
                   : StatusChip(share.status),
             ),

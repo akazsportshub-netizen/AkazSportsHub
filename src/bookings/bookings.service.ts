@@ -60,6 +60,8 @@ interface ShareRow {
   currency: string;
   status: string;
   paid_at: Date | null;
+  is_ringer: boolean;
+  pay_by: Date | null;
   escrow_status: string | null;
 }
 
@@ -247,7 +249,7 @@ export class BookingsService {
     const shares = await this.db.query<ShareRow>(
       /* sql */ `
       SELECT s.id, s.user_id, u.full_name, s.amount_minor, s.currency, s.status, s.paid_at,
-             a.status AS escrow_status
+             s.is_ringer, s.pay_by, a.status AS escrow_status
         FROM booking_split_shares s
         JOIN users u ON u.id = s.user_id
         LEFT JOIN payment_attempts a ON a.id = s.paid_attempt_id

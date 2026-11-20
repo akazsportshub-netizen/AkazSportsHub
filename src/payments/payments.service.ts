@@ -18,6 +18,7 @@ import { LockService } from '../queues/lock.service';
 import { QueuesService } from '../queues/queues.service';
 import { ProviderEvent, ProviderEventOutcome } from './payment-events';
 import { PaymentFlow, PaymentRef } from './payment-gateway';
+import { planRebalance } from './rebalance';
 import { PaymentGatewayRegistry } from './payment-gateway.registry';
 
 type AttemptStatus =
@@ -46,18 +47,22 @@ interface AttemptRow {
   provider_capture_id: string | null;
   provider_customer_id: string | null;
   needs_review: boolean;
+  /** Set only by releaseBooking: partial refunds already made or promised. */
+  refunded_minor?: number;
 }
 
 /** Booking → share → attempt, locked in that order everywhere to avoid deadlocks. */
 interface LockedRows {
   booking: { id: string; status: BookingStatus };
-  share: { id: string; status: ShareStatus; paid_attempt_id: string | null };
+  share: { id: string; status: ShareStatus; paid_attempt_id: string | null; is_ringer: boolean };
   attempt: AttemptRow;
 }
 
 interface FollowUps {
   capture: Set<string>;
   release: Set<string>;
+  /** Bookings that may need their ringer re-split and refunds sent. */
+  settle: Set<string>;
 }
 
 export interface StartPaymentResult {
@@ -119,6 +124,9 @@ export class PaymentsService {
       full_name: string;
       email: string | null;
       phone_e164: string | null;
+      is_ringer: boolean;
+      pay_by: Date | null;
+      ringer_window: boolean;
       attempt_count: number;
     }>(
       /* sql */ `
@@ -126,6 +134,7 @@ export class PaymentsService {
              b.status AS booking_status, b.hold_expires_at, (b.hold_expires_at > now()) AS hold_active,
              b.organizer_user_id, v.country_code AS venue_country, v.name AS venue_name, c.name AS court_name,
              u.full_name, u.email, u.phone_e164,
+             s.is_ringer, s.pay_by, (s.pay_by IS NOT NULL AND s.pay_by > now()) AS ringer_window,
              (SELECT count(*) FROM payment_attempts a WHERE a.share_id = s.id)::int AS attempt_count
         FROM booking_split_shares s
         JOIN bookings b ON b.id = s.booking_id
@@ -141,7 +150,9 @@ export class PaymentsService {
     const mayPay = share.share_user_id === user.id || share.organizer_user_id === user.id || hasRole(user, 'ADMIN');
     if (!mayPay) throw new ForbiddenException(apiError('FORBIDDEN', 'Only the payer or the organizer can pay this share'));
 
-    if (share.booking_status !== 'HOLD' || !share.hold_active) {
+    // A ringer who accepts a place on an already confirmed booking pays within their own window.
+    const ringerOpen = share.is_ringer && share.booking_status === 'CONFIRMED' && share.ringer_window;
+    if (!ringerOpen && (share.booking_status !== 'HOLD' || !share.hold_active)) {
       throw new ConflictException(apiError('HOLD_NOT_ACTIVE', 'This booking is no longer awaiting payment'));
     }
     if (share.share_status !== 'PENDING') {
@@ -189,7 +200,7 @@ export class PaymentsService {
         checkout_url: payment.checkoutUrl,
         amount_minor: share.amount_minor,
         currency: share.currency,
-        hold_expires_at: share.hold_expires_at,
+        hold_expires_at: ringerOpen && share.pay_by ? share.pay_by : share.hold_expires_at,
       };
     } catch (error) {
       await this.db.query(
@@ -214,7 +225,7 @@ export class PaymentsService {
    * redelivery is processed from scratch.
    */
   async applyProviderEvent(event: ProviderEvent): Promise<ProviderEventOutcome> {
-    const followUps: FollowUps = { capture: new Set(), release: new Set() };
+    const followUps: FollowUps = { capture: new Set(), release: new Set(), settle: new Set() };
 
     const outcome = await this.db.tx<ProviderEventOutcome>(async (q) => {
       const inserted = await q.query<{ id: number }>(
@@ -241,6 +252,7 @@ export class PaymentsService {
     // Only after the commit: workers must see the new state.
     for (const bookingId of followUps.capture) await this.queues.enqueueCapture(bookingId);
     for (const bookingId of followUps.release) await this.queues.enqueueRelease(bookingId);
+    for (const bookingId of followUps.settle) await this.settleRingers(bookingId);
 
     if (outcome === 'UNMATCHED') {
       this.logger.warn(`Unmatched ${event.provider} notification ${event.eventKey} (${event.eventType})`);
@@ -294,7 +306,10 @@ export class PaymentsService {
         applied = await this.settleRelease(q, rows, 'VOIDED', null);
         break;
       case 'REFUNDED':
-        applied = await this.settleRelease(q, rows, 'REFUNDED', event.providerRefundId);
+        // A partial refund (a ringer joined) must not mark the whole payment as refunded.
+        applied =
+          (await this.settleShareRefund(q, rows.attempt, event)) ||
+          (await this.settleRelease(q, rows, 'REFUNDED', event.providerRefundId));
         break;
       case 'ACTION_FAILED':
         // A capture, void or refund we asked for was rejected. Put the attempt back in
@@ -375,10 +390,13 @@ export class PaymentsService {
     if (share.paid_attempt_id === attempt.id) {
       // Already this share's payment (e.g. the capture confirmation of an authorized hold).
       if (booking.status === 'EXPIRED' || booking.status === 'CANCELLED') followUps.release.add(booking.id);
+      else if (target === 'CAPTURED') followUps.settle.add(booking.id);
       return true;
     }
 
-    if (booking.status === 'HOLD' && share.status === 'PENDING') {
+    // A ringer's place on a booking that is already confirmed is paid after the fact.
+    const ringerLate = booking.status === 'CONFIRMED' && share.status === 'PENDING' && share.is_ringer;
+    if ((booking.status === 'HOLD' || ringerLate) && share.status === 'PENDING') {
       await q.query(
         /* sql */ `
         UPDATE booking_split_shares
@@ -386,24 +404,31 @@ export class PaymentsService {
          WHERE id = $1`,
         [share.id, attempt.id],
       );
-      const [{ unpaid }] = await q.query<{ unpaid: number }>(
-        /* sql */ `
-        SELECT count(*)::int AS unpaid
-          FROM booking_split_shares
-         WHERE booking_id = $1 AND status <> 'PAID'`,
-        [booking.id],
-      );
-      if (unpaid === 0) {
-        await q.query(
+      if (ringerLate) followUps.capture.add(booking.id);
+      let confirmed = booking.status === 'CONFIRMED';
+      if (booking.status === 'HOLD') {
+        // Ringers never hold up the booking: it is confirmed when every original player has paid.
+        const [{ unpaid }] = await q.query<{ unpaid: number }>(
           /* sql */ `
-          UPDATE bookings
-             SET status = 'CONFIRMED', confirmed_at = now()
-           WHERE id = $1 AND status = 'HOLD'`,
+          SELECT count(*)::int AS unpaid
+            FROM booking_split_shares
+           WHERE booking_id = $1 AND status <> 'PAID' AND NOT is_ringer`,
           [booking.id],
         );
-        followUps.capture.add(booking.id);
-        this.logger.log(`Booking ${booking.id} confirmed: all shares paid`);
+        if (unpaid === 0) {
+          await q.query(
+            /* sql */ `
+            UPDATE bookings
+               SET status = 'CONFIRMED', confirmed_at = now()
+             WHERE id = $1 AND status = 'HOLD'`,
+            [booking.id],
+          );
+          followUps.capture.add(booking.id);
+          confirmed = true;
+          this.logger.log(`Booking ${booking.id} confirmed: all shares paid`);
+        }
       }
+      if (confirmed) followUps.settle.add(booking.id);
       return true;
     }
 
@@ -476,7 +501,7 @@ export class PaymentsService {
       [ids.booking_id],
     );
     const [share] = await q.query<LockedRows['share']>(
-      /* sql */ `SELECT id, status, paid_attempt_id FROM booking_split_shares WHERE id = $1 FOR UPDATE`,
+      /* sql */ `SELECT id, status, paid_attempt_id, is_ringer FROM booking_split_shares WHERE id = $1 FOR UPDATE`,
       [ids.share_id],
     );
     const [attempt] = await q.query<AttemptRow>(
@@ -490,6 +515,207 @@ export class PaymentsService {
     );
     if (!booking || !share || !attempt) return null;
     return { booking, share, attempt };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ringers: equal re-split and partial refunds
+  // ---------------------------------------------------------------------------
+
+  /**
+   * A refund webhook for one of our partial refunds. Matched by the provider's refund id,
+   * or (only while the payment is still captured and the id has not been stored yet) by amount.
+   */
+  private async settleShareRefund(q: Queryable, attempt: AttemptRow, event: ProviderEvent): Promise<boolean> {
+    const [refund] = await q.query<{ id: string }>(
+      /* sql */ `
+      SELECT id
+        FROM share_refunds
+       WHERE attempt_id = $1
+         AND status = 'PENDING'
+         AND (($2::text IS NOT NULL AND provider_refund_id = $2::text)
+              OR ($3::text = 'CAPTURED' AND $4::bigint IS NOT NULL AND amount_minor = $4::bigint
+                  AND ($2::text IS NULL OR provider_refund_id IS NULL)))
+       ORDER BY (provider_refund_id IS NOT NULL) DESC, created_at
+       LIMIT 1
+         FOR UPDATE`,
+      [attempt.id, event.providerRefundId, attempt.status, event.amountMinor],
+    );
+    if (!refund) return false;
+    await q.query(
+      /* sql */ `
+      UPDATE share_refunds
+         SET status = 'REFUNDED', provider_refund_id = COALESCE($2::text, provider_refund_id), failure_reason = NULL
+       WHERE id = $1`,
+      [refund.id, event.providerRefundId],
+    );
+    return true;
+  }
+
+  /** Re-splits a booking that has paid ringers, then sends the refunds that are due. Safe to repeat. */
+  async settleRingers(bookingId: string): Promise<void> {
+    try {
+      await this.rebalanceBooking(bookingId);
+      await this.sendShareRefunds(bookingId);
+    } catch (error) {
+      // The minute sweep picks it up again.
+      this.logger.error(`Could not settle ringers for booking ${bookingId}: ${errorMessage(error)}`);
+    }
+  }
+
+  /**
+   * Once every payment on a confirmed booking is captured, everyone's share becomes an equal
+   * part of the total and the overpaid amounts are queued as refunds. Runs in one transaction.
+   */
+  private async rebalanceBooking(bookingId: string): Promise<number> {
+    return this.locks.withLock(`payments:${bookingId}`, PAYMENT_LOCK, () =>
+      this.db.tx(async (q) => {
+        const [booking] = await q.query<{ status: BookingStatus; total_minor: number; currency: CurrencyCode }>(
+          /* sql */ `SELECT status, total_minor, currency FROM bookings WHERE id = $1 FOR UPDATE`,
+          [bookingId],
+        );
+        if (!booking || (booking.status !== 'CONFIRMED' && booking.status !== 'COMPLETED')) return 0;
+
+        const paid = await q.query<{
+          share_id: string;
+          attempt_id: string;
+          attempt_status: AttemptStatus;
+          needs_review: boolean;
+          is_ringer: boolean;
+          created_at: Date;
+          net_minor: number;
+        }>(
+          /* sql */ `
+          SELECT s.id AS share_id, a.id AS attempt_id, a.status AS attempt_status, a.needs_review,
+                 s.is_ringer, s.created_at,
+                 (a.amount_minor - (SELECT coalesce(sum(r.amount_minor), 0) FROM share_refunds r
+                                     WHERE r.attempt_id = a.id AND r.status <> 'FAILED'))::int AS net_minor
+            FROM booking_split_shares s
+            JOIN payment_attempts a ON a.id = s.paid_attempt_id
+           WHERE s.booking_id = $1 AND s.status = 'PAID'
+           ORDER BY s.created_at, s.id
+             FOR UPDATE OF s`,
+          [bookingId],
+        );
+        if (!paid.some((row) => row.is_ringer) || paid.length < 2) return 0;
+        // Refund only against money we really hold: wait until every payment is captured.
+        if (paid.some((row) => row.attempt_status !== 'CAPTURED' || row.needs_review)) return 0;
+
+        const plan = planRebalance(
+          booking.total_minor,
+          paid.map((row) => ({
+            shareId: row.share_id,
+            attemptId: row.attempt_id,
+            paidMinor: row.net_minor,
+            isRinger: row.is_ringer,
+            createdAt: new Date(row.created_at).getTime(),
+          })),
+        );
+        if (plan.collectedMinor < booking.total_minor) {
+          this.logger.error(
+            `Booking ${bookingId} holds ${plan.collectedMinor} of ${booking.total_minor} ${booking.currency} after re-splitting — check its shares`,
+          );
+        }
+
+        let refunds = 0;
+        for (const step of plan.steps) {
+          await q.query(/* sql */ `UPDATE booking_split_shares SET amount_minor = $2 WHERE id = $1`, [step.shareId, step.newAmountMinor]);
+          if (step.refundMinor > 0) {
+            await q.query(
+              /* sql */ `
+              INSERT INTO share_refunds (share_id, attempt_id, amount_minor, currency, reason)
+              VALUES ($1, $2, $3, $4, 'RINGER_JOINED')`,
+              [step.shareId, step.attemptId, step.refundMinor, booking.currency],
+            );
+            refunds += 1;
+          }
+        }
+        return refunds;
+      }),
+    );
+  }
+
+  /** Sends every partial refund that is due. A refund the provider has not confirmed yet is left for its webhook. */
+  private async sendShareRefunds(bookingId: string): Promise<void> {
+    await this.locks.withLock(`payments:${bookingId}`, PAYMENT_LOCK, async () => {
+      const due = await this.db.query<AttemptRow & { refund_id: string; refund_minor: number }>(
+        /* sql */ `
+        SELECT ${ATTEMPT_COLUMNS}, r.id AS refund_id, r.amount_minor AS refund_minor
+          FROM share_refunds r
+          JOIN payment_attempts a ON a.id = r.attempt_id
+          JOIN booking_split_shares s ON s.id = a.share_id
+         WHERE s.booking_id = $1
+           AND r.status = 'PENDING'
+           AND r.provider_refund_id IS NULL
+           AND a.status = 'CAPTURED'
+           AND a.needs_review = false
+           AND a.provider_payment_id IS NOT NULL
+         ORDER BY r.created_at`,
+        [bookingId],
+      );
+      for (const row of due) {
+        try {
+          const result = await this.gateways.get(row.provider).partialRefund(this.toRef(row), row.refund_minor, row.refund_id);
+          await this.db.query(
+            /* sql */ `
+            UPDATE share_refunds
+               SET status = CASE WHEN $2::boolean THEN 'REFUNDED' ELSE status END,
+                   provider_refund_id = COALESCE($3::text, provider_refund_id), failure_reason = NULL
+             WHERE id = $1 AND status = 'PENDING'`,
+            [row.refund_id, result.final, result.reference],
+          );
+        } catch (error) {
+          await this.db.query(/* sql */ `UPDATE share_refunds SET failure_reason = $2 WHERE id = $1`, [
+            row.refund_id,
+            errorMessage(error).slice(0, 500),
+          ]);
+          this.logger.error(`Partial refund ${row.refund_id} failed: ${errorMessage(error)}`);
+        }
+      }
+    });
+  }
+
+  /**
+   * Minute sweep for ringers: cancels places whose payment window ran out (and reopens the
+   * place), and retries re-splits and refunds that did not finish.
+   */
+  async sweepRingers(): Promise<{ expiredShares: number; settled: number }> {
+    const expired = await this.db.query<{ booking_id: string }>(
+      /* sql */ `
+      UPDATE booking_split_shares s
+         SET status = 'CANCELLED'
+       WHERE s.is_ringer AND s.status = 'PENDING' AND s.pay_by IS NOT NULL AND s.pay_by < now()
+      RETURNING s.booking_id`,
+    );
+    for (const { booking_id: bookingId } of expired) {
+      await this.db.query(
+        /* sql */ `
+        UPDATE ringer_requests r
+           SET slots_filled = greatest(r.slots_filled - 1, 0),
+               status = CASE WHEN r.status = 'FILLED' AND r.expires_at > now() THEN 'OPEN' ELSE r.status END
+         WHERE r.id = (SELECT id FROM ringer_requests
+                        WHERE booking_id = $1 AND status IN ('OPEN', 'FILLED')
+                        ORDER BY created_at DESC LIMIT 1)
+           AND NOT (r.status = 'FILLED' AND EXISTS (SELECT 1 FROM ringer_requests o WHERE o.booking_id = $1 AND o.status = 'OPEN'))`,
+        [bookingId],
+      );
+    }
+
+    const toSettle = await this.db.query<{ id: string }>(
+      /* sql */ `
+      SELECT DISTINCT b.id
+        FROM bookings b
+        JOIN booking_split_shares s ON s.booking_id = b.id AND s.is_ringer AND s.status = 'PAID'
+       WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+         AND (
+           (SELECT coalesce(sum(p.amount_minor), 0) FROM booking_split_shares p WHERE p.booking_id = b.id AND p.status = 'PAID') > b.total_minor
+           OR EXISTS (SELECT 1 FROM share_refunds r JOIN payment_attempts a ON a.id = r.attempt_id
+                       JOIN booking_split_shares x ON x.id = a.share_id
+                      WHERE x.booking_id = b.id AND r.status = 'PENDING' AND r.provider_refund_id IS NULL)
+         )
+       LIMIT 50`,
+    );
+    for (const { id } of toSettle) await this.settleRingers(id);
+    return { expiredShares: expired.length, settled: toSettle.length };
   }
 
   // ---------------------------------------------------------------------------
@@ -549,6 +775,7 @@ export class PaymentsService {
       }
       if (failures.length > 0) throw new Error(`Capture failed for booking ${bookingId} — ${failures.join('; ')}`);
     });
+    await this.settleRingers(bookingId);
   }
 
   /**
@@ -560,7 +787,9 @@ export class PaymentsService {
     await this.locks.withLock(`payments:${bookingId}`, PAYMENT_LOCK, async () => {
       const attempts = await this.db.query<AttemptRow>(
         /* sql */ `
-        SELECT ${ATTEMPT_COLUMNS}
+        SELECT ${ATTEMPT_COLUMNS},
+               (SELECT coalesce(sum(r.amount_minor), 0)::int FROM share_refunds r
+                 WHERE r.attempt_id = a.id AND r.status <> 'FAILED') AS refunded_minor
           FROM payment_attempts a
           JOIN booking_split_shares s ON s.id = a.share_id
           JOIN bookings b ON b.id = s.booking_id
@@ -587,7 +816,9 @@ export class PaymentsService {
 
         try {
           const gateway = this.gateways.get(attempt.provider);
-          const result = isHold ? await gateway.void(this.toRef(attempt)) : await gateway.refund(this.toRef(attempt));
+          const result = isHold
+            ? await gateway.void(this.toRef(attempt))
+            : await gateway.refund(this.toRef(attempt, attempt.amount_minor - (attempt.refunded_minor ?? 0)));
           if (result.final) {
             await this.db.tx(async (q) => {
               const rows = await this.lockRows(q, attempt.id);
@@ -697,7 +928,7 @@ export class PaymentsService {
     });
   }
 
-  private toRef(attempt: AttemptRow): PaymentRef {
+  private toRef(attempt: AttemptRow, amountMinor: number = attempt.amount_minor): PaymentRef {
     if (!attempt.provider_payment_id) {
       throw new Error(`Attempt ${attempt.id} has no provider payment id`);
     }
@@ -706,7 +937,7 @@ export class PaymentsService {
       providerPaymentId: attempt.provider_payment_id,
       providerCaptureId: attempt.provider_capture_id,
       providerCustomerId: attempt.provider_customer_id,
-      amountMinor: attempt.amount_minor,
+      amountMinor,
       currency: attempt.currency,
     };
   }

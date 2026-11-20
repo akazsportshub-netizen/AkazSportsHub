@@ -4,13 +4,15 @@ import '../api/api_client.dart';
 import '../api/models.dart';
 import '../util/format.dart';
 import '../widgets.dart';
+import 'booking_screen.dart';
 
 /// Games near you that are a player short. Push notifications come later; for now
 /// invitations are fetched when this tab is opened or pulled down.
 class InvitesScreen extends StatefulWidget {
-  const InvitesScreen({super.key, required this.api});
+  const InvitesScreen({super.key, required this.api, required this.onBookingsChanged});
 
   final ApiClient api;
+  final VoidCallback onBookingsChanged;
 
   @override
   State<InvitesScreen> createState() => _InvitesScreenState();
@@ -35,8 +37,23 @@ class _InvitesScreenState extends State<InvitesScreen> {
   Future<void> _respond(RingerInvite invite, bool accept) async {
     setState(() => _answering = invite.id);
     try {
-      final status = await widget.api.respondToInvite(invite.id, accept: accept);
-      if (mounted) showMessage(context, status == 'ACCEPTED' ? 'You are in! See you there.' : 'Invitation declined.');
+      final answer = await widget.api.respondToInvite(invite.id, accept: accept);
+      if (!mounted) return;
+      if (answer.accepted && answer.bookingId != null) {
+        widget.onBookingsChanged();
+        showMessage(
+          context,
+          'You have a place! Pay your share of ${formatMoney(answer.amountMinor ?? 0, answer.currency ?? '')} within 15 minutes to keep it.',
+        );
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => BookingScreen(api: widget.api, bookingId: answer.bookingId!, onBookingsChanged: widget.onBookingsChanged),
+          ),
+        );
+      } else {
+        showMessage(context, answer.accepted ? 'You are in! See you there.' : 'Invitation declined.');
+      }
     } on ApiException catch (error) {
       if (mounted) {
         showMessage(context, error.code == 'REQUEST_CLOSED' ? 'Too late — all places have been taken.' : error.message);

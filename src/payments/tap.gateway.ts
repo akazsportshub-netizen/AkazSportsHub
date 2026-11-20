@@ -112,6 +112,21 @@ export class TapGateway implements PaymentGateway {
     return { final: status === 'REFUNDED', reference: asString(response.id) };
   }
 
+  async partialRefund(ref: PaymentRef, amountMinor: number, refundId: string): Promise<ProviderActionResult> {
+    const response = await this.post('/refunds', {
+      charge_id: ref.providerCaptureId ?? ref.providerPaymentId,
+      amount: minorToMajorNumber(amountMinor, ref.currency),
+      currency: ref.currency,
+      reason: 'requested_by_customer',
+      description: 'A player joined the booking, so your share is lower',
+      metadata: { attempt_id: ref.attemptId, share_refund_id: refundId },
+      reference: { merchant: refundId },
+      post: { url: this.webhookUrl() },
+    });
+    const status = asString(response.status);
+    return { final: status === 'REFUNDED', reference: asString(response.id) };
+  }
+
   private metadata(attemptId: string, bookingId: string, shareId: string): Record<string, string> {
     return { attempt_id: attemptId, booking_id: bookingId, share_id: shareId };
   }

@@ -143,6 +143,10 @@ class ScriptedGateway implements PaymentGateway {
     return this.act('refund', ref, `re_${ref.attemptId.slice(0, 8)}`);
   }
 
+  partialRefund(ref: PaymentRef, amountMinor: number, refundId: string) {
+    return this.act('refund', { ...ref, amountMinor }, `re_${refundId.slice(0, 8)}`);
+  }
+
   last(action: 'capture' | 'void' | 'refund'): PaymentRef {
     const call = [...this.calls].reverse().find((entry) => entry.action === action);
     assert.ok(call?.ref, `expected a ${action} call on ${this.name}`);

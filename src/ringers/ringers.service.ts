@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundExce
 import { AuthUser } from '../auth/auth.types';
 import { apiError } from '../common/api-error';
 import { DatabaseService, PG_UNIQUE_VIOLATION, pgErrorCode } from '../database/database.service';
+import { ringerShareMinor } from '../payments/rebalance';
 import { QueuesService } from '../queues/queues.service';
 import { hasNextWave, inviteBudget, RINGER_MIN_RELIABILITY, RINGER_WAVE_INTERVAL_MS, ringerWave } from './ringer-waves';
 
@@ -178,6 +179,17 @@ export class RingersService {
 
   /** Accept or decline an invitation. Places go to whoever accepts first. */
   async respond(user: AuthUser, inviteId: string, accept: boolean) {
+    try {
+      return await this.respondInTx(user, inviteId, accept);
+    } catch (error) {
+      if (pgErrorCode(error) === PG_UNIQUE_VIOLATION) {
+        throw new ConflictException(apiError('ALREADY_IN_BOOKING', 'You are already part of this booking'));
+      }
+      throw error;
+    }
+  }
+
+  private respondInTx(user: AuthUser, inviteId: string, accept: boolean) {
     return this.db.tx(async (q) => {
       const [found] = await q.query<{ request_id: string; user_id: string }>(
         /* sql */ `SELECT request_id, user_id FROM ringer_invites WHERE id = $1`,
@@ -186,9 +198,15 @@ export class RingersService {
       if (!found || found.user_id !== user.id) throw new NotFoundException(apiError('INVITE_NOT_FOUND', 'Invitation not found'));
 
       // Lock the request first so two players accepting the last place are served one at a time.
-      const [request] = await q.query<{ status: string; slots_needed: number; slots_filled: number; is_expired: boolean }>(
+      const [request] = await q.query<{
+        booking_id: string;
+        status: string;
+        slots_needed: number;
+        slots_filled: number;
+        is_expired: boolean;
+      }>(
         /* sql */ `
-        SELECT status, slots_needed, slots_filled, (expires_at <= now()) AS is_expired
+        SELECT booking_id, status, slots_needed, slots_filled, (expires_at <= now()) AS is_expired
           FROM ringer_requests
          WHERE id = $1
            FOR UPDATE`,
@@ -212,6 +230,32 @@ export class RingersService {
         throw new ConflictException(apiError('REQUEST_CLOSED', 'All places have been taken'));
       }
 
+      // The ringer pays an equal share, counting everyone in so far. Lock the booking so two
+      // acceptances at once see each other.
+      const [booking] = await q.query<{ status: string; total_minor: number; currency: string }>(
+        /* sql */ `SELECT status, total_minor, currency FROM bookings WHERE id = $1 FOR UPDATE`,
+        [request.booking_id],
+      );
+      if (!booking || (booking.status !== 'HOLD' && booking.status !== 'CONFIRMED')) {
+        throw new ConflictException(apiError('REQUEST_CLOSED', 'This booking is no longer open'));
+      }
+      const [{ players }] = await q.query<{ players: number }>(
+        /* sql */ `
+        SELECT count(*)::int AS players
+          FROM booking_split_shares
+         WHERE booking_id = $1
+           AND ((NOT is_ringer AND status IN ('PAID', 'PENDING')) OR (is_ringer AND status = 'PAID'))`,
+        [request.booking_id],
+      );
+      const amountMinor = ringerShareMinor(booking.total_minor, players);
+      const [share] = await q.query<{ id: string }>(
+        /* sql */ `
+        INSERT INTO booking_split_shares (booking_id, user_id, amount_minor, currency, is_ringer, pay_by)
+        VALUES ($1, $2, $3, $4, true, now() + interval '15 minutes')
+        RETURNING id`,
+        [request.booking_id, user.id, amountMinor, booking.currency],
+      );
+
       await q.query(/* sql */ `UPDATE ringer_invites SET status = 'ACCEPTED', responded_at = now() WHERE id = $1`, [inviteId]);
       const [updated] = await q.query<{ status: string }>(
         /* sql */ `
@@ -225,7 +269,14 @@ export class RingersService {
       if (updated.status === 'FILLED') {
         await q.query(/* sql */ `UPDATE ringer_invites SET status = 'EXPIRED' WHERE request_id = $1 AND status = 'SENT'`, [found.request_id]);
       }
-      return { invite_id: inviteId, status: 'ACCEPTED' };
+      return {
+        invite_id: inviteId,
+        status: 'ACCEPTED',
+        booking_id: request.booking_id,
+        share_id: share.id,
+        amount_minor: amountMinor,
+        currency: booking.currency,
+      };
     });
   }
 }

@@ -62,6 +62,8 @@ export interface PaymentGateway {
   capture(ref: PaymentRef): Promise<ProviderActionResult>;
   void(ref: PaymentRef): Promise<ProviderActionResult>;
   refund(ref: PaymentRef): Promise<ProviderActionResult>;
+  /** Returns part of a captured payment. `refundId` is our own id for this refund, used as an idempotency key. */
+  partialRefund(ref: PaymentRef, amountMinor: number, refundId: string): Promise<ProviderActionResult>;
 }
 
 /** A provider call failed (network, non-2xx, or an unexpected response). */

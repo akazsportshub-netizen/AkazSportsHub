@@ -74,6 +74,14 @@ export class CheckoutGateway implements PaymentGateway {
     return { final: false, reference: asString(response.action_id) };
   }
 
+  async partialRefund(ref: PaymentRef, amountMinor: number, refundId: string): Promise<ProviderActionResult> {
+    const response = await this.post(`/payments/${encodeURIComponent(ref.providerPaymentId)}/refunds`, `share-refund-${refundId}`, {
+      amount: amountMinor,
+      reference: ref.attemptId,
+    });
+    return { final: false, reference: asString(response.action_id) };
+  }
+
   /** The idempotency key makes a retried capture/void/refund a no-op on Checkout.com's side. */
   private post(path: string, idempotencyKey: string | undefined, body: unknown): Promise<Record<string, unknown>> {
     const key = this.config.checkout.secretKey;

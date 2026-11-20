@@ -191,6 +191,8 @@ class Share {
     required this.status,
     required this.paidAt,
     required this.escrowStatus,
+    this.isRinger = false,
+    this.payBy,
   });
 
   factory Share.fromJson(Map<String, dynamic> json) => Share(
@@ -202,6 +204,8 @@ class Share {
         status: asString(json['status']),
         paidAt: asDateOrNull(json['paid_at']),
         escrowStatus: asStringOrNull(json['escrow_status']),
+        isRinger: json['is_ringer'] == true,
+        payBy: asDateOrNull(json['pay_by']),
       );
 
   final String id;
@@ -214,6 +218,10 @@ class Share {
   final String status;
   final DateTime? paidAt;
   final String? escrowStatus;
+
+  /// A substitute player who joined later; they pay their own share before [payBy].
+  final bool isRinger;
+  final DateTime? payBy;
 
   bool get isPaid => status == 'PAID';
 }
@@ -411,4 +419,24 @@ class Friend {
 
   final String id;
   final String fullName;
+}
+
+/// The answer to an invitation. When a place is accepted, the app takes the player
+/// to [bookingId] to pay their [amountMinor] share.
+class InviteAnswer {
+  InviteAnswer({required this.status, this.bookingId, this.amountMinor, this.currency});
+
+  factory InviteAnswer.fromJson(Map<String, dynamic> json) => InviteAnswer(
+        status: asString(json['status']),
+        bookingId: asStringOrNull(json['booking_id']),
+        amountMinor: json['amount_minor'] == null ? null : asInt(json['amount_minor']),
+        currency: asStringOrNull(json['currency']),
+      );
+
+  final String status;
+  final String? bookingId;
+  final int? amountMinor;
+  final String? currency;
+
+  bool get accepted => status == 'ACCEPTED';
 }

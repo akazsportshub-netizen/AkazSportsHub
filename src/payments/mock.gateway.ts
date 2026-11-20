@@ -32,4 +32,8 @@ export class MockGateway implements PaymentGateway {
   async refund(ref: PaymentRef): Promise<ProviderActionResult> {
     return { final: true, reference: `mock_refund_${ref.attemptId}` };
   }
+
+  async partialRefund(_ref: PaymentRef, _amountMinor: number, refundId: string): Promise<ProviderActionResult> {
+    return { final: true, reference: `mock_partial_refund_${refundId}` };
+  }
 }

@@ -34,8 +34,10 @@ export class HoldExpiryWorker {
       case JOB_SWEEP: {
         const holds = await this.bookings.sweep();
         const payments = await this.payments.sweep();
-        const busy = holds.expired + holds.completed + payments.captures + payments.releases + payments.flagged > 0;
-        if (busy) this.logger.log(`Sweep: ${JSON.stringify({ ...holds, ...payments })}`);
+        const ringers = await this.payments.sweepRingers();
+        const busy =
+          holds.expired + holds.completed + payments.captures + payments.releases + payments.flagged + ringers.expiredShares + ringers.settled > 0;
+        if (busy) this.logger.log(`Sweep: ${JSON.stringify({ ...holds, ...payments, ...ringers })}`);
         return;
       }
       default:

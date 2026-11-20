@@ -120,10 +120,8 @@ class ApiClient {
   Future<List<RingerInvite>> myInvites() async =>
       asMapList(await _send('GET', '/ringer-invites/mine')).map(RingerInvite.fromJson).toList();
 
-  Future<String> respondToInvite(String inviteId, {required bool accept}) async {
-    final body = asMap(await _send('POST', '/ringer-invites/$inviteId/respond', body: {'accept': accept}));
-    return asString(body['status']);
-  }
+  Future<InviteAnswer> respondToInvite(String inviteId, {required bool accept}) async =>
+      InviteAnswer.fromJson(asMap(await _send('POST', '/ringer-invites/$inviteId/respond', body: {'accept': accept})));
 
   // ---- matches (referee) ---------------------------------------------------
 
