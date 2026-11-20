@@ -12,6 +12,8 @@ export class LogMessenger implements Messenger {
   private readonly logger = new Logger('Messenger');
 
   async send(toPhone: string, body: string, channel: 'WHATSAPP' | 'SMS') {
+    // Sign-in codes pass through here, so never let this stand in for a real provider in production.
+    if (process.env.NODE_ENV === 'production') throw new Error('No messaging provider is configured');
     this.logger.log(`[${channel}] to ${toPhone}: ${body}`);
     return { providerMessageId: null };
   }

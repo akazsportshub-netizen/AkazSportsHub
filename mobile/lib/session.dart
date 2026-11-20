@@ -49,8 +49,12 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signInAs(String userId) async {
-    final result = await api.devSignIn(userId);
+  Future<void> signInAs(String userId) async => _start(await api.devSignIn(userId));
+
+  Future<void> signInWithCode(String phone, String code, {String? fullName}) async =>
+      _start(await api.verifySignInCode(phone, code, fullName: fullName));
+
+  Future<void> _start(({String token, DevUser user}) result) async {
     api.accessToken = result.token;
     api.userId = result.user.id;
     _user = result.user;

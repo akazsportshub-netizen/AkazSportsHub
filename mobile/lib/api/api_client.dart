@@ -50,6 +50,24 @@ class ApiClient {
     return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
   }
 
+  // ---- sign-in with a phone number ----------------------------------------
+
+  /// Sends a six-digit code by SMS. Throws RATE_LIMITED after too many requests.
+  Future<void> requestSignInCode(String phone) async {
+    await _send('POST', '/auth/otp/request', body: {'phone': phone});
+  }
+
+  /// Exchanges the code for a token. A first-time number needs [fullName]; without it the
+  /// server answers NAME_REQUIRED and keeps the code usable.
+  Future<({String token, DevUser user})> verifySignInCode(String phone, String code, {String? fullName}) async {
+    final body = asMap(await _send('POST', '/auth/otp/verify', body: {
+      'phone': phone,
+      'code': code,
+      if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
+    }));
+    return (token: asString(body['access_token']), user: DevUser.fromJson(asMap(body['user'])));
+  }
+
   // ---- discovery -----------------------------------------------------------
 
   Future<List<Venue>> nearbyVenues({required double lat, required double lng, double radiusKm = 25, String? sport}) async {

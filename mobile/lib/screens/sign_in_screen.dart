@@ -4,6 +4,7 @@ import '../api/api_client.dart';
 import '../api/models.dart';
 import '../session.dart';
 import '../widgets.dart';
+import 'phone_sign_in_screen.dart';
 
 /// Development sign-in: pick one of the demo users seeded in the database.
 /// Replaced by phone-number OTP once the API issues real tokens.
@@ -59,6 +60,10 @@ class _SignInScreenState extends State<SignInScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
+              // The demo list is switched off (production): phone sign-in is the way in.
+              if (snapshot.error is ApiException && (snapshot.error as ApiException).statusCode == 404) {
+                return _phoneOnly(theme);
+              }
               return ErrorRetry(message: _explain(snapshot.error!), onRetry: _reload);
             }
             final users = snapshot.data!;
@@ -70,6 +75,12 @@ class _SignInScreenState extends State<SignInScreen> {
                 const SizedBox(height: 24),
                 Text('AKAZ Sports Hub', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _openPhoneSignIn,
+                  icon: const Icon(Icons.sms),
+                  label: const Text('Sign in with your phone'),
+                ),
+                const SizedBox(height: 16),
                 Text('Development sign-in — choose who to play as.', style: theme.textTheme.bodyLarge),
                 const SizedBox(height: 4),
                 Text(widget.session.api.baseUrl, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
@@ -89,6 +100,25 @@ class _SignInScreenState extends State<SignInScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _openPhoneSignIn() {
+    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PhoneSignInScreen(session: widget.session)));
+  }
+
+  Widget _phoneOnly(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('AKAZ Sports Hub', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          FilledButton.icon(onPressed: _openPhoneSignIn, icon: const Icon(Icons.sms), label: const Text('Sign in with your phone')),
+        ],
       ),
     );
   }
