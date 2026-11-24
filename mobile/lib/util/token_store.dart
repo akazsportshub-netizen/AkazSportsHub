@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where sign-in tokens are kept between app launches.
@@ -9,49 +7,24 @@ abstract class TokenStore {
   Future<void> delete(String key);
 }
 
-/// The system's protected storage: Keychain (iOS), Keystore (Android), Credential Manager (Windows).
-/// If the system refuses (for example no keyring on a Linux desktop), it falls back to ordinary
-/// app storage rather than stopping the person from signing in.
-class SecureTokenStore implements TokenStore {
-  const SecureTokenStore();
+/// Ordinary app storage. This is the stand-in used while the system's protected storage
+/// (Keychain, Keystore, Credential Manager) is not part of the app. It is fine for development;
+/// before release on phones, a protected [TokenStore] should take its place (only this file and
+/// the default in `Session` change).
+class PrefsTokenStore implements TokenStore {
+  const PrefsTokenStore();
 
-  static const FlutterSecureStorage _secure = FlutterSecureStorage();
-
-  @override
-  Future<String?> read(String key) async {
-    try {
-      final value = await _secure.read(key: key);
-      if (value != null) return value;
-    } on Object catch (error) {
-      debugPrint('Secure storage unavailable ($error); using app storage.');
-    }
-    return (await SharedPreferences.getInstance()).getString(_fallbackKey(key));
-  }
+  // A different name from the one earlier versions used, so moving old tokens over cannot delete them.
+  static String _name(String key) => 'tokens.$key';
 
   @override
-  Future<void> write(String key, String value) async {
-    try {
-      await _secure.write(key: key, value: value);
-      // Never leave a copy in the unprotected place.
-      await (await SharedPreferences.getInstance()).remove(_fallbackKey(key));
-      return;
-    } on Object catch (error) {
-      debugPrint('Secure storage unavailable ($error); using app storage.');
-    }
-    await (await SharedPreferences.getInstance()).setString(_fallbackKey(key), value);
-  }
+  Future<String?> read(String key) async => (await SharedPreferences.getInstance()).getString(_name(key));
 
   @override
-  Future<void> delete(String key) async {
-    try {
-      await _secure.delete(key: key);
-    } on Object catch (error) {
-      debugPrint('Secure storage unavailable ($error).');
-    }
-    await (await SharedPreferences.getInstance()).remove(_fallbackKey(key));
-  }
+  Future<void> write(String key, String value) async => (await SharedPreferences.getInstance()).setString(_name(key), value);
 
-  static String _fallbackKey(String key) => 'fallback.$key';
+  @override
+  Future<void> delete(String key) async => (await SharedPreferences.getInstance()).remove(_name(key));
 }
 
 /// Keeps tokens in memory only. For tests.

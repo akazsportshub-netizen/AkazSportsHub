@@ -1,4 +1,4 @@
-// Unit tests for sign-in storage: tokens go to the protected store, never to ordinary app storage.
+// Unit tests for sign-in storage: tokens go to the token store, never to ordinary app storage.
 import 'dart:convert';
 
 import 'package:akaz_sports_hub/api/api_client.dart';
@@ -23,7 +23,7 @@ Session _session(MemoryTokenStore store) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('signing in keeps tokens in the protected store and out of app storage', () async {
+  test('signing in keeps tokens in the token store and out of app storage', () async {
     SharedPreferences.setMockInitialValues({});
     final store = MemoryTokenStore();
     await _session(store).signInAs('u-1');
@@ -34,7 +34,7 @@ void main() {
     expect(prefs.getString('akaz.refresh_token'), isNull);
   });
 
-  test('a restart restores the session from the protected store', () async {
+  test('a restart restores the session from the token store', () async {
     SharedPreferences.setMockInitialValues({});
     final store = MemoryTokenStore();
     await _session(store).signInAs('u-1');
@@ -62,7 +62,7 @@ void main() {
     expect(prefs.getString('akaz.refresh_token'), isNull);
   });
 
-  test('signing out clears the protected store', () async {
+  test('signing out clears the token store', () async {
     SharedPreferences.setMockInitialValues({});
     final store = MemoryTokenStore();
     final session = _session(store);

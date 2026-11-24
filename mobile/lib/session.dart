@@ -18,7 +18,7 @@ const String defaultApiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultV
 
 /// Who is signed in, kept across app restarts.
 class Session extends ChangeNotifier {
-  Session(this.api, {TokenStore tokens = const SecureTokenStore()}) : _tokens = tokens {
+  Session(this.api, {TokenStore tokens = const PrefsTokenStore()}) : _tokens = tokens {
     api.onUnauthenticated = () {
       if (_user != null) signOut();
     };
