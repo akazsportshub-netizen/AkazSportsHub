@@ -96,6 +96,9 @@ All routes are under `/v1` and need `Authorization: Bearer <token>` unless marke
 | `GET /manager/venues/:id/blocks`, `POST /manager/courts/:id/blocks`, `DELETE /manager/blocks/:id` | venue manager (own venue) | Close a court for a time. Cannot overlap a booking; the database enforces it |
 | `GET /manager/venues/:id/earnings` | venue manager (own venue) | Confirmed/completed bookings by day, AKAZ commission and net. Payouts are not tracked yet |
 | `POST /matches` | referee, venue manager, admin | Create a match |
+| `GET /ratings/me` | any user | The caller's skill rating and last ten rated matches |
+| `GET /referee/bookings?court_id=` | referee, venue manager, admin | Confirmed bookings around now with no match yet (to start a rated match from) |
+| `POST /matches/:id/teams/auto`, `PUT /matches/:id/teams`, `GET /matches/:id/teams` | referee, venue manager, admin (GET also players in the match) | Split the booking's paid players into balanced teams, move players, read the teams. Only before kickoff |
 | `GET /matches/:id` | any user | Match, events, active sin bins |
 | `GET /matches/:id/sin-bins` | any user | Live White Card countdowns |
 | `POST /matches/:id/events/batch` | match referee, admin | Idempotent offline sync (max 200 events) |

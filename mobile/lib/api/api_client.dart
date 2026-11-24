@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'manager_models.dart';
 import 'models.dart';
+import 'rating_models.dart';
 
 /// An error the app can show. [code] is the API's stable error code (SLOT_TAKEN,
 /// HOLD_EXPIRED, …) when there is one; [message] is always readable as it is.
@@ -236,9 +237,11 @@ class ApiClient {
     required String homeTeamName,
     required String awayTeamName,
     required DateTime scheduledStart,
+    String? bookingId,
   }) async {
     final body = asMap(await _send('POST', '/matches', body: {
       'court_id': courtId,
+      if (bookingId != null) 'booking_id': bookingId,
       'home_team_name': homeTeamName,
       'away_team_name': awayTeamName,
       'scheduled_start': DateTime.fromMillisecondsSinceEpoch(scheduledStart.millisecondsSinceEpoch, isUtc: true).toIso8601String(),
@@ -250,6 +253,28 @@ class ApiClient {
   /// (`accepted`), already had (`duplicates`) or refused (`rejected`), and the server's clock.
   Future<Map<String, dynamic>> syncMatchEvents(String matchId, {required String deviceId, required List<Map<String, Object?>> events}) async =>
       asMap(await _send('POST', '/matches/$matchId/events/batch', body: {'device_id': deviceId, 'events': events}));
+
+  // ---- skill ratings and teams ---------------------------------------------
+
+  Future<MyRating> myRating() async => MyRating.fromJson(asMap(await _send('GET', '/ratings/me')));
+
+  /// Bookings around now on a court that a referee can start a rated match from.
+  Future<List<CandidateBooking>> refereeBookings(String courtId) async =>
+      asMapList(await _send('GET', '/referee/bookings', query: {'court_id': courtId})).map(CandidateBooking.fromJson).toList();
+
+  Future<MatchTeams> matchTeams(String matchId) async => MatchTeams.fromJson(asMap(await _send('GET', '/matches/$matchId/teams')));
+
+  /// Splits the booking's paid players into two teams of similar strength.
+  Future<MatchTeams> autoBalanceTeams(String matchId) async =>
+      MatchTeams.fromJson(asMap(await _send('POST', '/matches/$matchId/teams/auto')));
+
+  Future<MatchTeams> setTeams(String matchId, Map<String, String> sideByUserId) async => MatchTeams.fromJson(asMap(await _send(
+        'PUT',
+        '/matches/$matchId/teams',
+        body: {
+          'assignments': [for (final entry in sideByUserId.entries) {'user_id': entry.key, 'side': entry.value}],
+        },
+      )));
 
   // ---- venue manager -------------------------------------------------------
 

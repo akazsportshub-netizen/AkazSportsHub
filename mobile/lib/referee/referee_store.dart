@@ -84,9 +84,9 @@ class RefereeStore extends ChangeNotifier {
   }
 
   /// Needs a connection: the server creates the match and gives it an id.
-  Future<void> createMatch({required String courtId, required String home, required String away}) async {
-    final id = await api.createMatch(courtId: courtId, homeTeamName: home, awayTeamName: away, scheduledStart: DateTime.now());
-    _match = RefMatch(id: id, homeName: home, awayName: away);
+  Future<void> createMatch({required String courtId, required String home, required String away, String? bookingId}) async {
+    final id = await api.createMatch(courtId: courtId, homeTeamName: home, awayTeamName: away, scheduledStart: DateTime.now(), bookingId: bookingId);
+    _match = RefMatch(id: id, homeName: home, awayName: away, bookingId: bookingId);
     _syncError = null;
     await _save();
     notifyListeners();

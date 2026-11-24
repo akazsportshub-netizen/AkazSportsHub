@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../api/rating_models.dart';
+import '../util/format.dart';
 import '../referee/referee_models.dart';
 import '../referee/referee_store.dart';
 import '../widgets.dart';
@@ -80,6 +82,9 @@ class _NewMatchFormState extends State<_NewMatchForm> {
   Future<Venue>? _venue;
   String? _venueId;
   String? _courtId;
+  String? _bookingId;
+  String _tz = 'Asia/Qatar';
+  Future<List<CandidateBooking>>? _candidates;
   bool _creating = false;
   String? _error;
 
@@ -104,6 +109,8 @@ class _NewMatchFormState extends State<_NewMatchForm> {
   void _pickVenue(Venue venue) => setState(() {
         _venueId = venue.id;
         _courtId = null;
+        _bookingId = null;
+        _candidates = null;
         _venue = widget.api.venue(venue.id);
       });
 
@@ -117,7 +124,7 @@ class _NewMatchFormState extends State<_NewMatchForm> {
     }
     setState(() { _creating = true; _error = null; });
     try {
-      await widget.store.createMatch(courtId: courtId, home: home, away: away);
+      await widget.store.createMatch(courtId: courtId, home: home, away: away, bookingId: _bookingId);
     } on ApiException catch (error) {
       if (mounted) {
         setState(() {
@@ -192,7 +199,42 @@ class _NewMatchFormState extends State<_NewMatchForm> {
                     ChoiceChip(
                       label: Text(court.name),
                       selected: _courtId == court.id,
-                      onSelected: (_) => setState(() { _courtId = court.id; }),
+                      onSelected: (_) => setState(() {
+                        _courtId = court.id;
+                        _bookingId = null;
+                        _tz = snapshot.data!.timezone;
+                        _candidates = widget.api.refereeBookings(court.id);
+                      }),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+        if (_candidates != null) ...[
+          const SizedBox(height: 16),
+          Text('Booking (optional)', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text('Link a booking to make this a rated match: the paid players are split into teams and their ratings move after the final whistle.', style: theme.textTheme.bodySmall),
+          const SizedBox(height: 8),
+          FutureBuilder<List<CandidateBooking>>(
+            future: _candidates,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator());
+              }
+              if (snapshot.hasError) return Text(snapshot.error.toString());
+              final bookings = snapshot.data!;
+              if (bookings.isEmpty) return const Text('No confirmed bookings on this court right now. The match will not be rated.');
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final booking in bookings)
+                    ChoiceChip(
+                      label: Text('${formatClock(booking.startsAt, _tz)}–${formatClock(booking.endsAt, _tz)} · ${booking.organizerName} · ${booking.paidPlayers} paid'),
+                      selected: _bookingId == booking.id,
+                      onSelected: (selected) => setState(() { _bookingId = selected ? booking.id : null; }),
                     ),
                 ],
               );
@@ -237,6 +279,10 @@ class _Console extends StatelessWidget {
         _SyncBar(store: store, match: match),
         const SizedBox(height: 8),
         _MatchControls(store: store, match: match),
+        if (match.bookingId != null && !match.isLive && !match.isFinished) ...[
+          const SizedBox(height: 8),
+          _TeamsCard(api: store.api, match: match),
+        ],
         if (match.isLive) ...[
           const SizedBox(height: 8),
           _TeamPanel(store: store, side: sideHome, name: match.homeName),
@@ -249,6 +295,107 @@ class _Console extends StatelessWidget {
         ],
         const SizedBox(height: 8),
         _EventLog(match: match),
+      ],
+    );
+  }
+}
+
+/// Before kickoff: split the booking's paid players into balanced teams, and adjust by tapping a player.
+class _TeamsCard extends StatefulWidget {
+  const _TeamsCard({required this.api, required this.match});
+
+  final ApiClient api;
+  final RefMatch match;
+
+  @override
+  State<_TeamsCard> createState() => _TeamsCardState();
+}
+
+class _TeamsCardState extends State<_TeamsCard> {
+  MatchTeams? _teams;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _run(Future<MatchTeams> Function() action) async {
+    setState(() { _busy = true; _error = null; });
+    try {
+      final teams = await action();
+      if (mounted) setState(() { _teams = teams; });
+    } on ApiException catch (error) {
+      if (mounted) setState(() { _error = error.message; });
+    } finally {
+      if (mounted) setState(() { _busy = false; });
+    }
+  }
+
+  Future<void> _load() => _run(() => widget.api.matchTeams(widget.match.id));
+
+  Future<void> _balance() => _run(() => widget.api.autoBalanceTeams(widget.match.id));
+
+  Future<void> _move(TeamPlayer player) =>
+      _run(() => widget.api.setTeams(widget.match.id, {player.userId: player.side == 'HOME' ? 'AWAY' : 'HOME'}));
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final teams = _teams;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('Teams (rated match)', style: theme.textTheme.titleMedium)),
+                FilledButton.tonalIcon(
+                  onPressed: _busy ? null : _balance,
+                  icon: const Icon(Icons.balance),
+                  label: Text(teams == null || teams.players.isEmpty ? 'Auto-balance' : 'Re-balance'),
+                ),
+              ],
+            ),
+            if (_busy) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator()),
+            if (teams != null && teams.players.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Average rating: ${widget.match.homeName} ${teams.homeAvg ?? '-'} · ${widget.match.awayName} ${teams.awayAvg ?? '-'}'
+                '${teams.homeWinProbability == null ? '' : ' · ${widget.match.homeName} win chance ${(teams.homeWinProbability! * 100).round()}%'}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _side(context, widget.match.homeName, teams.home),
+              const SizedBox(height: 8),
+              _side(context, widget.match.awayName, teams.away),
+              const SizedBox(height: 4),
+              Text('Tap a player to move them to the other team.', style: theme.textTheme.bodySmall),
+            ] else if (teams != null && !_busy)
+              const Padding(padding: EdgeInsets.only(top: 8), child: Text('No teams yet. Tap Auto-balance once the players have paid.')),
+            if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: TextStyle(color: theme.colorScheme.error))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _side(BuildContext context, String name, List<TeamPlayer> players) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(name, style: Theme.of(context).textTheme.titleSmall),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final player in players)
+              ActionChip(label: Text('${player.fullName} (${player.rating})'), onPressed: _busy ? null : () => _move(player)),
+          ],
+        ),
       ],
     );
   }
