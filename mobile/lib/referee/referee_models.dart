@@ -135,18 +135,22 @@ class SinBin {
 }
 
 class RefMatch {
-  RefMatch({required this.id, required this.homeName, required this.awayName, List<RefEvent>? events}) : events = events ?? <RefEvent>[];
+  RefMatch({required this.id, required this.homeName, required this.awayName, this.bookingId, List<RefEvent>? events}) : events = events ?? <RefEvent>[];
 
   factory RefMatch.fromJson(Map<String, dynamic> json) => RefMatch(
         id: asString(json['id']),
         homeName: asString(json['home_name']),
         awayName: asString(json['away_name']),
+        bookingId: asStringOrNull(json['booking_id']),
         events: asMapList(json['events']).map(RefEvent.fromJson).toList(),
       );
 
   final String id;
   final String homeName;
   final String awayName;
+
+  /// Set when the match is played in a booking: its players can be split into teams and rated.
+  final String? bookingId;
 
   /// In the order they were recorded.
   final List<RefEvent> events;
@@ -155,6 +159,7 @@ class RefMatch {
         'id': id,
         'home_name': homeName,
         'away_name': awayName,
+        if (bookingId != null) 'booking_id': bookingId,
         'events': events.map((event) => event.toJson()).toList(),
       };
 

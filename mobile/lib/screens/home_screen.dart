@@ -6,6 +6,7 @@ import 'discover_screen.dart';
 import 'invites_screen.dart';
 import 'manager_screen.dart';
 import 'my_bookings_screen.dart';
+import 'rating_screen.dart';
 import 'referee_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -72,6 +73,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text(titles[_tab]),
         actions: [
+          IconButton(
+            tooltip: context.t('rating_title'),
+            icon: const Icon(Icons.emoji_events_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RatingScreen(api: api))),
+          ),
           TextButton(
             onPressed: () => widget.session.setLanguage(widget.session.language == 'ar' ? 'en' : 'ar'),
             child: Text(context.t('switch_language')),
