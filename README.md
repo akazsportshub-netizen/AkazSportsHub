@@ -97,6 +97,11 @@ All routes are under `/v1` and need `Authorization: Bearer <token>` unless marke
 | `GET /manager/venues/:id/earnings` | venue manager (own venue) | Confirmed/completed bookings by day, AKAZ commission and net. Payouts are not tracked yet |
 | `POST /matches` | referee, venue manager, admin | Create a match |
 | `GET /ratings/me` | any user | The caller's skill rating and last ten rated matches |
+| `GET /academy/groups` | any user | Training groups open for enrolment, with spots left (filter by `venue_id`, `sport`) |
+| `POST /academy/groups/:id/enrol` | any user | Enrol the caller or one of their children (`dependent_id`) |
+| `GET/POST /academy/children` | any user | The caller's child profiles |
+| `GET /academy/enrolments`, `GET /academy/enrolments/:id`, `POST /academy/enrolments/:id/leave` | any user | Their groups, attendance and fees |
+| `/manager/venues/:id/academy/groups`, `/manager/academy/...` | `VENUE_MANAGER` | Groups, roster, weekly sessions, attendance, monthly fees (record cash/bank payment or waive) |
 | `GET /referee/bookings?court_id=` | referee, venue manager, admin | Confirmed bookings around now with no match yet (to start a rated match from) |
 | `POST /matches/:id/teams/auto`, `PUT /matches/:id/teams`, `GET /matches/:id/teams` | referee, venue manager, admin (GET also players in the match) | Split the booking's paid players into balanced teams, move players, read the teams. Only before kickoff |
 | `GET /matches/:id` | any user | Match, events, active sin bins |
@@ -162,6 +167,6 @@ These parts of the master guide are outside the backend core and still to do:
 - **Sign-in.** The API verifies access tokens but does not issue them (no OTP login or refresh tokens). For development, `npm run dev:token` prints a token, and with `DEV_LOGIN=true` the app can sign in as any seeded user through `/v1/dev/auth` (refused in production).
 - **Push notifications.** Ringer invitations are stored and served by `GET /ringer-invites/mine`; nothing is pushed through FCM yet.
 - **Live match timers over WebSocket.** Sin-bin countdowns are served over HTTP with `server_time` for clock correction.
-- **Venue payouts, academy ERP, gear e-commerce, QR passes, IoT floodlights/turnstiles, POS sync, tournament brackets.**
+- **Venue payouts, academy online fee payment and reminders, gear e-commerce, QR passes, IoT floodlights/turnstiles, POS sync, tournament brackets.**
 - **Flutter app:** a first version is in `mobile/` (see its README). Still to do there: OTP sign-in, split-pay with friends, GPS, push notifications, and the App Store / Play pipeline.
 - **Ringers do not pay a share.** A player who accepts an invitation is listed, not charged.
