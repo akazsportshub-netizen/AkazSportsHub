@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../l10n/app_strings.dart';
 import '../session.dart';
-import '../widgets.dart';
 
 /// Turns what the person typed into the international format the server wants, or null.
 String? normalizeSignInPhone(String input) {
