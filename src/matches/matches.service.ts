@@ -8,6 +8,7 @@ import {
 import { AuthUser, hasRole } from '../auth/auth.types';
 import { apiError } from '../common/api-error';
 import { DatabaseService, PG_UNIQUE_VIOLATION, pgErrorCode, Queryable } from '../database/database.service';
+import { RatingsService } from '../ratings/ratings.service';
 import { CreateMatchDto, SyncMatchEventsDto } from './dto/match.dto';
 import { MAX_CLOCK_SKEW_MS, requiresTeamSide, sinBinReleaseAt } from './sin-bin';
 
@@ -54,7 +55,10 @@ const MATCH_COLUMNS = `id, booking_id, court_id, referee_user_id, home_team_name
 
 @Injectable()
 export class MatchesService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly ratings: RatingsService,
+  ) {}
 
   async create(user: AuthUser, dto: CreateMatchDto): Promise<MatchRow> {
     const refereeId = dto.referee_user_id ?? (hasRole(user, 'REFEREE') ? user.id : null);
@@ -129,7 +133,7 @@ export class MatchesService {
    */
   async syncEvents(user: AuthUser, rawMatchId: string, dto: SyncMatchEventsDto): Promise<SyncResult> {
     const matchId = rawMatchId.toLowerCase();   // Postgres returns uuids in lower case; compare like with like
-    return this.db.tx(async (q) => {
+    const result = await this.db.tx(async (q) => {
       // Row lock: two devices syncing the same match are processed one after the other.
       const [locked] = await q.query<{ referee_user_id: string | null }>(
         /* sql */ `SELECT referee_user_id FROM matches WHERE id = $1 FOR UPDATE`,
@@ -229,6 +233,9 @@ export class MatchesService {
         server_time: new Date(),
       };
     });
+    // After the events are safely stored: a finished, refereed match updates the players' ratings (once).
+    if (result.match.status === 'FINISHED') await this.ratings.rateFinishedMatch(matchId);
+    return result;
   }
 
   /**
