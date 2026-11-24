@@ -301,6 +301,12 @@ const Map<String, String> _en = {
   'country_kw': 'Kuwait',
   'country_bh': 'Bahrain',
   'country_om': 'Oman',
+
+  'rating_title': 'My rating',
+  'rating_matches': '{n} rated matches',
+  'rating_note': 'Your rating changes only after matches recorded by a referee, so it reflects how you really play.',
+  'rating_history': 'Recent rated matches',
+  'rating_empty': 'No rated matches yet. After a referee records your match, your rating moves and appears here.',
 };
 
 const Map<String, String> _ar = {
@@ -531,4 +537,10 @@ const Map<String, String> _ar = {
   'country_kw': 'الكويت',
   'country_bh': 'البحرين',
   'country_om': 'عُمان',
+
+  'rating_title': 'تقييمي',
+  'rating_matches': '{n} مباريات مُقيَّمة',
+  'rating_note': 'يتغير تقييمك فقط بعد المباريات التي يسجلها حكم، فهو يعكس مستواك الحقيقي.',
+  'rating_history': 'آخر المباريات المُقيَّمة',
+  'rating_empty': 'لا توجد مباريات مُقيَّمة بعد. بعد أن يسجل الحكم مباراتك سيتغير تقييمك ويظهر هنا.',
 };
