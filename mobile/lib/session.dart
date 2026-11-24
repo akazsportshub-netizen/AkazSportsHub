@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api_client.dart';
 import 'api/models.dart';
 import 'util/format.dart';
+import 'util/token_store.dart';
 
 /// Where the API is. Override at build time:
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:3000
@@ -17,18 +18,18 @@ const String defaultApiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultV
 
 /// Who is signed in, kept across app restarts.
 class Session extends ChangeNotifier {
-  Session(this.api) {
+  Session(this.api, {TokenStore tokens = const SecureTokenStore()}) : _tokens = tokens {
     api.onUnauthenticated = () {
       if (_user != null) signOut();
     };
     api.onTokensRefreshed = (accessToken, refreshToken) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, accessToken);
-      await prefs.setString(_refreshKey, refreshToken);
+      await _tokens.write(_tokenKey, accessToken);
+      await _tokens.write(_refreshKey, refreshToken);
     };
   }
 
   final ApiClient api;
+  final TokenStore _tokens;
 
   static const _tokenKey = 'akaz.access_token';
   static const _refreshKey = 'akaz.refresh_token';
@@ -63,22 +64,33 @@ class Session extends ChangeNotifier {
     final savedLanguage = prefs.getString(_languageKey);
     if (savedLanguage != null) _language = savedLanguage == 'ar' ? 'ar' : 'en';
     formatLanguageCode = _language;
-    final token = prefs.getString(_tokenKey);
+    await _moveOldTokens(prefs);
+    final token = await _tokens.read(_tokenKey);
     final userJson = prefs.getString(_userKey);
     if (token != null && userJson != null) {
       try {
         _user = DevUser.fromJson(asMap(jsonDecode(userJson)));
         api.accessToken = token;
-        api.refreshToken = prefs.getString(_refreshKey);
+        api.refreshToken = await _tokens.read(_refreshKey);
         api.userId = _user!.id;
       } on FormatException {
-        await prefs.remove(_tokenKey);
-        await prefs.remove(_refreshKey);
+        await _tokens.delete(_tokenKey);
+        await _tokens.delete(_refreshKey);
         await prefs.remove(_userKey);
       }
     }
     _restored = true;
     notifyListeners();
+  }
+
+  /// Earlier versions kept tokens in ordinary app storage. Move them to the protected place once.
+  Future<void> _moveOldTokens(SharedPreferences prefs) async {
+    for (final key in [_tokenKey, _refreshKey]) {
+      final old = prefs.getString(key);
+      if (old == null) continue;
+      await _tokens.write(key, old);
+      await prefs.remove(key);
+    }
   }
 
   Future<void> signInAs(String userId) async => _start(await api.devSignIn(userId));
@@ -95,11 +107,11 @@ class Session extends ChangeNotifier {
     api.userId = result.user.id;
     _user = result.user;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, result.token);
+    await _tokens.write(_tokenKey, result.token);
     if (result.refreshToken != null) {
-      await prefs.setString(_refreshKey, result.refreshToken!);
+      await _tokens.write(_refreshKey, result.refreshToken!);
     } else {
-      await prefs.remove(_refreshKey);
+      await _tokens.delete(_refreshKey);
     }
     await prefs.setString(_userKey, jsonEncode(result.user.toJson()));
     // The language chosen in the app decides the language of our messages.
@@ -116,8 +128,8 @@ class Session extends ChangeNotifier {
     // End the session on the server too, so a copied token cannot be used later.
     if (refreshToken != null) unawaited(api.revokeRefreshToken(refreshToken));
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_refreshKey);
+    await _tokens.delete(_tokenKey);
+    await _tokens.delete(_refreshKey);
     await prefs.remove(_userKey);
     notifyListeners();
   }
