@@ -5,6 +5,7 @@ import '../api/manager_models.dart';
 import '../l10n/app_strings.dart';
 import '../util/format.dart';
 import '../widgets.dart';
+import 'academy_manager.dart';
 
 const List<String> _sports = ['FOOTBALL', 'PADEL', 'BADMINTON', 'BASKETBALL', 'VOLLEYBALL', 'TENNIS', 'CRICKET'];
 final RegExp _clock = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$');
@@ -50,7 +51,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
             Expanded(
               child: DefaultTabController(
                 key: ValueKey(venue.id),
-                length: 4,
+                length: 5,
                 child: Column(
                   children: [
                     TabBar(
@@ -60,6 +61,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
                         Tab(text: context.t('mgr_courts')),
                         Tab(text: context.t('mgr_blocks')),
                         Tab(text: context.t('mgr_earnings')),
+                        Tab(text: context.t('acad_title')),
                       ],
                     ),
                     Expanded(
@@ -69,6 +71,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
                           _CourtsTab(api: widget.api, venue: venue),
                           _BlocksTab(api: widget.api, venue: venue),
                           _EarningsTab(api: widget.api, venue: venue),
+                          AcademyTab(api: widget.api, venue: venue),
                         ],
                       ),
                     ),

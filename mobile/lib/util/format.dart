@@ -138,3 +138,6 @@ int _pow10(int exponent) {
 /// The reverse of [toVenueTime]: wall-clock time at the venue → the UTC instant.
 DateTime fromVenueTime(DateTime wallClock, String timezone) =>
     DateTime.utc(wallClock.year, wallClock.month, wallClock.day, wallClock.hour, wallClock.minute).subtract(zoneOffset(timezone));
+
+/// ISO weekday (1 = Monday ... 7 = Sunday) as "Thu" / "الخميس".
+String weekdayName(int isoWeekday) => _weekdayName(isoWeekday.clamp(1, 7));

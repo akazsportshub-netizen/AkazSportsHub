@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'academy_models.dart';
 import 'manager_models.dart';
 import 'models.dart';
 import 'rating_models.dart';
@@ -275,6 +276,88 @@ class ApiClient {
           'assignments': [for (final entry in sideByUserId.entries) {'user_id': entry.key, 'side': entry.value}],
         },
       )));
+
+  // ---- academy -------------------------------------------------------------
+
+  Future<List<AcademyGroup>> academyGroups({String? venueId}) async => asMapList(
+          await _send('GET', '/academy/groups', query: {if (venueId != null) 'venue_id': venueId}))
+      .map(AcademyGroup.fromJson)
+      .toList();
+
+  Future<List<Child>> myChildren() async => asMapList(await _send('GET', '/academy/children')).map(Child.fromJson).toList();
+
+  Future<Child> addChild(String fullName, {String? ageGroup}) async {
+    final body = asMap(await _send(
+      'POST',
+      '/academy/children',
+      body: {'full_name': fullName, if (ageGroup != null && ageGroup.isNotEmpty) 'age_group': ageGroup},
+    ));
+    return Child(id: asString(body['id']), fullName: fullName, ageGroup: ageGroup);
+  }
+
+  Future<void> enrolInGroup(String groupId, {String? childId}) async {
+    await _send('POST', '/academy/groups/$groupId/enrol', body: {if (childId != null) 'dependent_id': childId});
+  }
+
+  Future<List<MyEnrolment>> myEnrolments() async => asMapList(await _send('GET', '/academy/enrolments')).map(MyEnrolment.fromJson).toList();
+
+  Future<EnrolmentDetail> enrolmentDetail(String id) async => EnrolmentDetail.fromJson(asMap(await _send('GET', '/academy/enrolments/$id')));
+
+  Future<void> leaveGroup(String enrolmentId) async {
+    await _send('POST', '/academy/enrolments/$enrolmentId/leave');
+  }
+
+  Future<List<AcademyGroup>> managerAcademyGroups(String venueId) async =>
+      asMapList(await _send('GET', '/manager/venues/$venueId/academy/groups')).map(AcademyGroup.fromJson).toList();
+
+  Future<void> createAcademyGroup(String venueId, Map<String, Object?> fields) async {
+    await _send('POST', '/manager/venues/$venueId/academy/groups', body: fields);
+  }
+
+  Future<void> updateAcademyGroup(String groupId, Map<String, Object?> fields) async {
+    await _send('PATCH', '/manager/academy/groups/$groupId', body: fields);
+  }
+
+  Future<List<RosterEntry>> academyRoster(String groupId) async =>
+      asMapList(await _send('GET', '/manager/academy/groups/$groupId/roster')).map(RosterEntry.fromJson).toList();
+
+  Future<List<AcademySession>> academySessions(String groupId) async =>
+      asMapList(await _send('GET', '/manager/academy/groups/$groupId/sessions')).map(AcademySession.fromJson).toList();
+
+  Future<void> moreAcademySessions(String groupId, int weeks) async {
+    await _send('POST', '/manager/academy/groups/$groupId/sessions', body: {'weeks': weeks});
+  }
+
+  Future<void> updateAcademySession(String sessionId, {bool? cancelled}) async {
+    await _send('PATCH', '/manager/academy/sessions/$sessionId', body: {if (cancelled != null) 'cancelled': cancelled});
+  }
+
+  Future<AttendanceSheet> academyAttendance(String sessionId) async =>
+      AttendanceSheet.fromJson(asMap(await _send('GET', '/manager/academy/sessions/$sessionId/attendance')));
+
+  Future<void> markAcademyAttendance(String sessionId, Map<String, String> statusByEnrolment) async {
+    await _send('PUT', '/manager/academy/sessions/$sessionId/attendance', body: {
+      'marks': [for (final entry in statusByEnrolment.entries) {'enrolment_id': entry.key, 'status': entry.value}],
+    });
+  }
+
+  /// Creates the month's fee for every active player who does not have one yet. Returns how many were created.
+  Future<int> createAcademyInvoices(String venueId, String month) async =>
+      asInt(asMap(await _send('POST', '/manager/venues/$venueId/academy/invoices', body: {'month': month}))['created']);
+
+  Future<List<AcademyInvoice>> academyInvoices(String venueId, {String? month, String? status}) async => asMapList(await _send(
+          'GET', '/manager/venues/$venueId/academy/invoices',
+          query: {if (month != null) 'month': month, if (status != null) 'status': status}))
+      .map(AcademyInvoice.fromJson)
+      .toList();
+
+  Future<void> payAcademyInvoice(String invoiceId, String method) async {
+    await _send('POST', '/manager/academy/invoices/$invoiceId/pay', body: {'method': method});
+  }
+
+  Future<void> waiveAcademyInvoice(String invoiceId) async {
+    await _send('POST', '/manager/academy/invoices/$invoiceId/waive', body: {});
+  }
 
   // ---- venue manager -------------------------------------------------------
 

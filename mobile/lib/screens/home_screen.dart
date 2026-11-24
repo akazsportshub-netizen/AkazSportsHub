@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
 import '../session.dart';
+import 'academy_screen.dart';
 import 'discover_screen.dart';
 import 'invites_screen.dart';
 import 'manager_screen.dart';
@@ -73,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text(titles[_tab]),
         actions: [
+          IconButton(
+            tooltip: context.t('acad_title'),
+            icon: const Icon(Icons.school_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AcademyScreen(api: api))),
+          ),
           IconButton(
             tooltip: context.t('rating_title'),
             icon: const Icon(Icons.emoji_events_outlined),
