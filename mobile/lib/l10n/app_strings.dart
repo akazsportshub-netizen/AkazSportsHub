@@ -285,6 +285,22 @@ const Map<String, String> _en = {
   'mgr_no_earnings': 'No bookings in this period.',
   'mgr_earn_note': 'Counts confirmed and completed bookings by the day they are played. Cancelled bookings are refunded and not counted. Payouts to the venue are not tracked yet.',
   'mgr_close': 'Close',
+
+  'sign_in_email_button': 'Sign in with your email',
+  'esi_enter_email': 'Enter your email address and we will email you a code.',
+  'esi_enter_code': 'Enter the code we sent to {email}.',
+  'email_address': 'Email address',
+  'err_email': 'Enter a valid email address, e.g. name@example.com.',
+  'use_other_email': 'Use a different email',
+  'your_country': 'Country',
+  'details_new_hint': 'New to AKAZ? Add your name and country to create your account.',
+  'details_required_hint': 'This email is new to AKAZ. What should we call you, and where do you play?',
+  'country_qa': 'Qatar',
+  'country_sa': 'Saudi Arabia',
+  'country_ae': 'United Arab Emirates',
+  'country_kw': 'Kuwait',
+  'country_bh': 'Bahrain',
+  'country_om': 'Oman',
 };
 
 const Map<String, String> _ar = {
@@ -499,4 +515,20 @@ const Map<String, String> _ar = {
   'mgr_no_earnings': 'لا توجد حجوزات في هذه الفترة.',
   'mgr_earn_note': 'تشمل الحجوزات المؤكدة والمكتملة حسب يوم اللعب. الحجوزات الملغاة يُرد مبلغها ولا تُحتسب. لا يتم تتبع التحويلات للمنشأة بعد.',
   'mgr_close': 'إغلاق النافذة',
+
+  'sign_in_email_button': 'سجّل الدخول ببريدك الإلكتروني',
+  'esi_enter_email': 'أدخل بريدك الإلكتروني وسنرسل لك رمزًا.',
+  'esi_enter_code': 'أدخل الرمز الذي أرسلناه إلى {email}.',
+  'email_address': 'البريد الإلكتروني',
+  'err_email': 'أدخل بريدًا إلكترونيًا صحيحًا، مثل name@example.com.',
+  'use_other_email': 'استخدم بريدًا آخر',
+  'your_country': 'الدولة',
+  'details_new_hint': 'جديد في AKAZ؟ أضف اسمك ودولتك لإنشاء حسابك.',
+  'details_required_hint': 'هذا البريد جديد في AKAZ. بماذا نناديك، وأين تلعب؟',
+  'country_qa': 'قطر',
+  'country_sa': 'السعودية',
+  'country_ae': 'الإمارات العربية المتحدة',
+  'country_kw': 'الكويت',
+  'country_bh': 'البحرين',
+  'country_om': 'عُمان',
 };

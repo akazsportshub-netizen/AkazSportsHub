@@ -121,6 +121,26 @@ class ApiClient {
     return true;
   }
 
+  // ---- sign-in with an email address --------------------------------------
+
+  /// Emails a six-digit code. Throws RATE_LIMITED after too many requests.
+  Future<void> requestEmailCode(String email, {String? locale}) async {
+    await _send('POST', '/auth/email/request', body: {'email': email, if (locale != null) 'locale': locale});
+  }
+
+  /// Exchanges the code for tokens. A first-time address needs [fullName] and [country]; without
+  /// them the server answers NAME_REQUIRED or COUNTRY_REQUIRED and keeps the code usable.
+  Future<({String token, String? refreshToken, DevUser user})> verifyEmailCode(String email, String code, {String? fullName, String? country, String? locale}) async {
+    final body = asMap(await _send('POST', '/auth/email/verify', body: {
+      'email': email,
+      'code': code,
+      if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
+      if (country != null && fullName != null && fullName.trim().isNotEmpty) 'country': country,
+      if (locale != null) 'locale': locale,
+    }));
+    return (token: asString(body['access_token']), refreshToken: asStringOrNull(body['refresh_token']), user: DevUser.fromJson(asMap(body['user'])));
+  }
+
   /// Saves the player's home area so nearby games can invite them. The server rounds it to about 100 m.
   Future<void> saveHomeLocation({required double lat, required double lng, bool? openToRinger}) async {
     await _send('PATCH', '/users/me/location', body: {

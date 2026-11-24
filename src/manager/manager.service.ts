@@ -58,7 +58,7 @@ export class ManagerService {
       SELECT b.id, b.court_id, c.name AS court_name, c.sport,
              lower(b.slot_range) AS starts_at, upper(b.slot_range) AS ends_at,
              b.status, b.total_minor, b.currency, b.cancel_reason,
-             u.full_name AS organizer_name, u.phone_e164 AS organizer_phone,
+             u.full_name AS organizer_name, coalesce(u.phone_e164, u.email) AS organizer_phone,
              (SELECT count(*)::int FROM booking_split_shares s WHERE s.booking_id = b.id AND s.status <> 'CANCELLED') AS shares_total,
              (SELECT count(*)::int FROM booking_split_shares s WHERE s.booking_id = b.id AND s.status = 'PAID') AS shares_paid
         FROM bookings b

@@ -50,7 +50,7 @@ export async function bookingContext(q: Queryable, bookingId: string): Promise<B
 export async function phonesOf(q: Queryable, userIds: readonly string[]): Promise<Map<string, { phone: string; name: string; locale: Locale }>> {
   if (userIds.length === 0) return new Map();
   const rows = await q.query<{ id: string; phone_e164: string; full_name: string; locale: string }>(
-    /* sql */ `SELECT id, phone_e164, full_name, locale FROM users WHERE id = ANY($1::uuid[])`,
+    /* sql */ `SELECT id, phone_e164, full_name, locale FROM users WHERE id = ANY($1::uuid[]) AND phone_e164 IS NOT NULL`,
     [userIds],
   );
   return new Map(rows.map((row) => [row.id, { phone: row.phone_e164, name: row.full_name, locale: toLocale(row.locale) }]));

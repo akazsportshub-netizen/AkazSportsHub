@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../l10n/app_strings.dart';
 import '../session.dart';
 import '../widgets.dart';
+import 'email_sign_in_screen.dart';
 import 'phone_sign_in_screen.dart';
 
 /// Development sign-in: pick one of the demo users seeded in the database.
@@ -85,6 +86,12 @@ class _SignInScreenState extends State<SignInScreen> {
                 Text('AKAZ Sports Hub', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 FilledButton.icon(
+                  onPressed: _openEmailSignIn,
+                  icon: const Icon(Icons.email_outlined),
+                  label: Text(context.t('sign_in_email_button')),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
                   onPressed: _openPhoneSignIn,
                   icon: const Icon(Icons.sms),
                   label: Text(context.t('sign_in_phone_button')),
@@ -113,6 +120,10 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  void _openEmailSignIn() {
+    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => EmailSignInScreen(session: widget.session)));
+  }
+
   void _openPhoneSignIn() {
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PhoneSignInScreen(session: widget.session)));
   }
@@ -126,7 +137,9 @@ class _SignInScreenState extends State<SignInScreen> {
         children: [
           Text('AKAZ Sports Hub', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          FilledButton.icon(onPressed: _openPhoneSignIn, icon: const Icon(Icons.sms), label: Text(context.t('sign_in_phone_button'))),
+          FilledButton.icon(onPressed: _openEmailSignIn, icon: const Icon(Icons.email_outlined), label: Text(context.t('sign_in_email_button'))),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: _openPhoneSignIn, icon: const Icon(Icons.sms), label: Text(context.t('sign_in_phone_button'))),
         ],
       ),
     );

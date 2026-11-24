@@ -86,6 +86,9 @@ class Session extends ChangeNotifier {
   Future<void> signInWithCode(String phone, String code, {String? fullName}) async =>
       _start(await api.verifySignInCode(phone, code, fullName: fullName, locale: _language));
 
+  Future<void> signInWithEmailCode(String email, String code, {String? fullName, String? country}) async =>
+      _start(await api.verifyEmailCode(email, code, fullName: fullName, country: country, locale: _language));
+
   Future<void> _start(({String token, String? refreshToken, DevUser user}) result) async {
     api.accessToken = result.token;
     api.refreshToken = result.refreshToken;

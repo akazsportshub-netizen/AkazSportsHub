@@ -89,6 +89,7 @@ All routes are under `/v1` and need `Authorization: Bearer <token>` unless marke
 | `POST /bookings/:id/ringer-requests` | organizer | Ask for N extra players |
 | `GET /ringer-invites/mine` | any user | Invitations received |
 | `POST /ringer-invites/:id/respond` | invited player | Accept or decline; first to accept get the places |
+| `POST /auth/email/request`, `POST /auth/email/verify` | public | Sign in with a code sent by email. A new address also sends `full_name` and `country` |
 | `GET /manager/venues` | venue manager | Venues the caller manages |
 | `GET /manager/venues/:id/bookings` | venue manager (own venue) | Bookings with who booked and how many have paid (default: today + 14 days) |
 | `GET/POST /manager/venues/:id/courts`, `PATCH /manager/courts/:id` | venue manager (own venue) | List, add and edit courts, prices, hours. Hours, slot length and switching off are refused while bookings exist |
